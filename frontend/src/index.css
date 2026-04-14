@@ -1,0 +1,50 @@
+@import "tailwindcss";
+
+/* ── Dark theme (default) ─────────────────────────────────────────────── */
+@theme {
+  --color-background: #09090b;
+  --color-foreground: #fafafa;
+
+  --color-primary: #10b981;
+  --color-primary-foreground: #ffffff;
+
+  --color-accent: #3b82f6;
+  --color-accent-foreground: #ffffff;
+
+  --color-muted: #18181b;
+  --color-muted-foreground: #a1a1aa;
+
+  --color-card: #09090b;
+  --color-card-foreground: #fafafa;
+  --color-border: #27272a;
+}
+
+/* ── Light theme override ─────────────────────────────────────────────── */
+:root[data-theme="light"] {
+  --color-background: #f9fafb;
+  --color-foreground: #09090b;
+
+  --color-primary: #059669;
+  --color-primary-foreground: #ffffff;
+
+  --color-accent: #2563eb;
+  --color-accent-foreground: #ffffff;
+
+  --color-muted: #f3f4f6;
+  --color-muted-foreground: #6b7280;
+
+  --color-card: #ffffff;
+  --color-card-foreground: #09090b;
+  --color-border: #e5e7eb;
+}
+
+@layer base {
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
+}
