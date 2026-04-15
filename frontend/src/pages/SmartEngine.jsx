@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '../compone
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
-import { Zap, Trees, Clock, Wallet, MapPin, Sparkles, Navigation } from 'lucide-react';
+import { Zap, Trees, Clock, Wallet, MapPin, Sparkles, Navigation, Info } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
 import toast from 'react-hot-toast';
@@ -16,6 +16,7 @@ export default function SmartEngine() {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [aiRoutes, setAiRoutes] = useState(null);
+  const [isMock, setIsMock] = useState(false);
   const [logging, setLogging] = useState(false);
 
   const { user, checkAuth } = useAuthStore();
@@ -31,9 +32,10 @@ export default function SmartEngine() {
         destination,
         city: user?.collegeName || 'Bangalore'
       });
+      setIsMock(data.some?.(r => r._mock));
       setAiRoutes(data);
     } catch (err) {
-      setErrorMsg(err.response?.data?.message || 'Failed to initialize Smart Commute Engine');
+      setErrorMsg(err.response?.data?.message || 'Failed to initialize Treco Commute Engine');
     } finally {
       setLoading(false);
     }
@@ -61,6 +63,14 @@ export default function SmartEngine() {
           origin: { y: 0.6 },
           colors: ['#10b981', '#3b82f6', '#a7f3d0', '#bfdbfe'],
         });
+      }
+
+      // Streak milestone — bigger celebration
+      if (logData?.streakMilestone) {
+        setTimeout(() => {
+          confetti({ particleCount: 250, spread: 140, origin: { y: 0.4 }, colors: ['#f59e0b', '#10b981', '#3b82f6', '#f97316'] });
+          toast.success(`${logData.streakMilestone}-Day Streak Unlocked! Keep it up!`, { duration: 6000, icon: null });
+        }, 800);
       }
 
       const shieldMsg = logData?.shieldUsed ? ' Streak Shield activated!' : '';
@@ -91,14 +101,26 @@ export default function SmartEngine() {
               <Label>Current Location / Origin</Label>
               <div className="relative">
                 <MapPin className="absolute left-3 top-2.5 h-5 w-5 text-muted-foreground" />
-                <Input placeholder="e.g. Indiranagar Metro Station" className="pl-10 text-base" value={source} onChange={(e) => setSource(e.target.value)} />
+                <Input
+                  placeholder="e.g. Indiranagar Metro Station"
+                  className="pl-10 text-base"
+                  value={source}
+                  onChange={(e) => setSource(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && source && destination && handlePredict()}
+                />
               </div>
             </div>
             <div className="w-full space-y-2">
               <Label>Destination</Label>
               <div className="relative">
                 <Navigation className="absolute left-3 top-2.5 h-5 w-5 text-muted-foreground" />
-                <Input placeholder="e.g. Reva College" className="pl-10 text-base" value={destination} onChange={(e) => setDestination(e.target.value)} />
+                <Input
+                  placeholder="e.g. Reva College"
+                  className="pl-10 text-base"
+                  value={destination}
+                  onChange={(e) => setDestination(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && source && destination && handlePredict()}
+                />
               </div>
             </div>
             <Button onClick={handlePredict} disabled={loading || !source || !destination} className="w-full md:w-auto h-11 px-8 gap-2 font-bold shadow-lg shadow-primary/20">
@@ -130,46 +152,55 @@ export default function SmartEngine() {
         )}
 
         {aiRoutes && !loading && (
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="grid md:grid-cols-3 gap-6">
-            {aiRoutes.map((route, idx) => (
-              <Card key={idx} className={`relative overflow-hidden flex flex-col ${route.isGreenChoice ? 'border-primary shadow-[0_0_30px_rgba(16,185,129,0.15)] bg-primary/5' : 'border-border bg-card'} hover:shadow-lg transition-all`}>
-                {route.isGreenChoice && (
-                  <div className="absolute top-0 w-full bg-primary text-primary-foreground text-xs font-bold text-center py-1 uppercase tracking-widest">
-                    Green Choice + Max Points
-                  </div>
-                )}
-
-                <CardHeader className={`pb-4 ${route.isGreenChoice ? 'pt-8' : ''}`}>
-                  <CardTitle className="flex items-center justify-between">
-                    <span className="text-xl">{route.type}</span>
-                    <span className="text-sm px-2 py-1 bg-muted rounded font-mono text-muted-foreground">{route.mode}</span>
-                  </CardTitle>
-                </CardHeader>
-
-                <CardContent className="space-y-4 flex-1">
-                  <div className="flex items-center justify-between p-3 bg-background rounded-lg border border-border">
-                    <div className="flex items-center gap-2 text-muted-foreground"><Clock className="w-4 h-4" /> Time</div>
-                    <div className="font-bold font-mono">{route.timeString}</div>
-                  </div>
-                  <div className="flex items-center justify-between p-3 bg-background rounded-lg border border-border">
-                    <div className="flex items-center gap-2 text-muted-foreground"><Wallet className="w-4 h-4" /> Cost</div>
-                    <div className="font-bold font-mono text-lg">{route.costString}</div>
-                  </div>
-                  <div className="flex items-center justify-between p-3 bg-background rounded-lg border border-border">
-                    <div className="flex items-center gap-2 text-muted-foreground"><Trees className="w-4 h-4" /> Saved</div>
-                    <div className="font-bold font-mono text-primary flex items-center gap-1">
-                      {route.co2SavedKg} kg
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col gap-6">
+            {/* Mock data banner */}
+            {isMock && (
+              <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-500 text-sm">
+                <Info className="w-4 h-4 flex-shrink-0" />
+                <span>AI quota exceeded — showing demo routes. You can still log a commute to earn points.</span>
+              </div>
+            )}
+            <div className="grid md:grid-cols-3 gap-6">
+              {aiRoutes.map((route, idx) => (
+                <Card key={idx} className={`relative overflow-hidden flex flex-col ${route.isGreenChoice ? 'border-primary shadow-[0_0_30px_rgba(16,185,129,0.15)] bg-primary/5' : 'border-border bg-card'} hover:shadow-lg transition-all`}>
+                  {route.isGreenChoice && (
+                    <div className="absolute top-0 w-full bg-primary text-primary-foreground text-xs font-bold text-center py-1 uppercase tracking-widest">
+                      Green Choice + Max Points
                     </div>
-                  </div>
-                </CardContent>
+                  )}
 
-                <CardFooter>
-                  <Button onClick={() => logRoute(route)} disabled={logging} variant={route.isGreenChoice ? "default" : "outline"} className={`w-full font-bold gap-2 ${!route.isGreenChoice ? 'text-foreground' : ''}`}>
-                    Take Route & Earn {route.pointsEarned} pts
-                  </Button>
-                </CardFooter>
-              </Card>
-            ))}
+                  <CardHeader className={`pb-4 ${route.isGreenChoice ? 'pt-8' : ''}`}>
+                    <CardTitle className="flex items-center justify-between">
+                      <span className="text-xl">{route.type}</span>
+                      <span className="text-sm px-2 py-1 bg-muted rounded font-mono text-muted-foreground">{route.mode}</span>
+                    </CardTitle>
+                  </CardHeader>
+
+                  <CardContent className="space-y-4 flex-1">
+                    <div className="flex items-center justify-between p-3 bg-background rounded-lg border border-border">
+                      <div className="flex items-center gap-2 text-muted-foreground"><Clock className="w-4 h-4" /> Time</div>
+                      <div className="font-bold font-mono">{route.timeString}</div>
+                    </div>
+                    <div className="flex items-center justify-between p-3 bg-background rounded-lg border border-border">
+                      <div className="flex items-center gap-2 text-muted-foreground"><Wallet className="w-4 h-4" /> Cost</div>
+                      <div className="font-bold font-mono text-lg">{route.costString}</div>
+                    </div>
+                    <div className="flex items-center justify-between p-3 bg-background rounded-lg border border-border">
+                      <div className="flex items-center gap-2 text-muted-foreground"><Trees className="w-4 h-4" /> Saved</div>
+                      <div className="font-bold font-mono text-primary flex items-center gap-1">
+                        {route.co2SavedKg} kg
+                      </div>
+                    </div>
+                  </CardContent>
+
+                  <CardFooter>
+                    <Button onClick={() => logRoute(route)} disabled={logging} variant={route.isGreenChoice ? "default" : "outline"} className={`w-full font-bold gap-2 ${!route.isGreenChoice ? 'text-foreground' : ''}`}>
+                      Take Route & Earn {route.pointsEarned} pts
+                    </Button>
+                  </CardFooter>
+                </Card>
+              ))}
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

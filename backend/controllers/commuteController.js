@@ -81,8 +81,12 @@ export const logCommute = async (req, res) => {
     }
     // -------------------------
 
+    const MILESTONES = [7, 14, 30, 60, 100];
+    const streakMilestone = MILESTONES.includes(newStreak) ? newStreak : null;
+
     const updatedUser = await User.findByIdAndUpdate(userId, {
       $inc: { totalPoints: pointsEarned, spendablePoints: pointsEarned },
+      $max: { bestStreak: newStreak },
       lastCommuteDate: now,
       currentStreak: newStreak,
       ...(consumeShield ? { streakShield: false } : {})
@@ -93,7 +97,8 @@ export const logCommute = async (req, res) => {
       activity,
       newTotal: updatedUser.totalPoints,
       newStreak: updatedUser.currentStreak,
-      shieldUsed: consumeShield
+      shieldUsed: consumeShield,
+      streakMilestone,
     });
   } catch (err) {
     res.status(500).json({ message: err.message });

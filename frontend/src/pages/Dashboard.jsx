@@ -173,7 +173,7 @@ export default function Dashboard() {
               ) : (
                 <div className="flex items-center gap-2">
                   <input
-                    type="text"
+                    type="number"
                     value={goalInput}
                     onChange={e => setGoalInput(e.target.value)}
                     className="w-24 bg-muted text-foreground border border-border rounded-md px-2 py-1 text-sm font-mono text-right focus:outline-none focus:ring-1 focus:ring-accent"

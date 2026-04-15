@@ -1,14 +1,14 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Leaf, Zap, Trophy, ArrowRight } from 'lucide-react';
-import { Button } from '../components/ui/button';
+import { Button } from './ui/button';
 
 const STEPS = [
   {
     icon: Leaf,
     iconColor: 'text-primary',
     iconBg: 'bg-primary/10',
-    title: 'Welcome to Treco! 🌿',
+    title: 'Welcome to Treco',
     body: 'Treco helps you track your daily commutes, reduce your carbon footprint, and earn rewards for choosing greener transport.',
   },
   {

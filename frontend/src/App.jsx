@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Routes, Route, Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LogOut, Leaf, Route as RouteIcon, Trophy, Gift, Moon, Sun, UserCircle, History, Sparkles } from 'lucide-react';
+import { Toaster } from 'react-hot-toast';
 import Dashboard from './pages/Dashboard';
 import SmartEngine from './pages/SmartEngine';
 import Leaderboard from './pages/Leaderboard';
@@ -15,7 +16,23 @@ import ErrorBoundary from './components/ErrorBoundary';
 import ImpactCard from './components/ImpactCard';
 import useAuthStore from './store/useAuthStore';
 
-// ── Dark / Light mode hook ──────────────────────────────────────────────────
+// ── Page title hook ─────────────────────────────────────────────────────────
+const PAGE_TITLES = {
+  '/': 'Dashboard — Treco',
+  '/engine': 'Smart Engine — Treco',
+  '/leaderboard': 'Leaderboard — Treco',
+  '/rewards': 'Rewards Vault — Treco',
+  '/history': 'Activity History — Treco',
+  '/profile': 'My Profile — Treco',
+};
+function usePageTitle() {
+  const location = useLocation();
+  useEffect(() => {
+    document.title = PAGE_TITLES[location.pathname] || 'Treco — Green Commutes. Real Rewards.';
+  }, [location.pathname]);
+}
+
+// ── Dark / Light mode hook ───────────────────────────────────────────────────
 function useDarkMode() {
   const [dark, setDark] = useState(() => {
     const stored = localStorage.getItem('theme');
@@ -39,11 +56,11 @@ function Header({ dark, setDark, onShowImpact }) {
   const isActive = (path) => location.pathname === path;
 
   const navLinks = [
-    { to: '/',            icon: Leaf,       label: 'Dashboard', accent: false },
-    { to: '/engine',      icon: RouteIcon,  label: 'Engine',    accent: true  },
-    { to: '/leaderboard', icon: Trophy,      label: 'Ranks',     accent: false },
-    { to: '/rewards',     icon: Gift,        label: 'Vault',     accent: false },
-    { to: '/history',     icon: History,     label: 'History',   accent: false },
+    { to: '/', icon: Leaf, label: 'Dashboard', accent: false },
+    { to: '/engine', icon: RouteIcon, label: 'Engine', accent: true },
+    { to: '/leaderboard', icon: Trophy, label: 'Ranks', accent: false },
+    { to: '/rewards', icon: Gift, label: 'Vault', accent: false },
+    { to: '/history', icon: History, label: 'History', accent: false },
   ];
 
   return (
@@ -74,15 +91,14 @@ function Header({ dark, setDark, onShowImpact }) {
             <Link
               key={to}
               to={to}
-              className={`transition-all flex items-center gap-1.5 ${
-                isActive(to)
-                  ? accent
-                    ? 'text-accent font-bold drop-shadow-[0_0_10px_rgba(59,130,246,0.3)]'
-                    : 'text-primary font-bold drop-shadow-[0_0_10px_rgba(16,185,129,0.3)]'
-                  : accent
-                    ? 'text-muted-foreground hover:text-accent'
-                    : 'text-muted-foreground hover:text-primary'
-              }`}
+              className={`transition-all flex items-center gap-1.5 ${isActive(to)
+                ? accent
+                  ? 'text-accent font-bold drop-shadow-[0_0_10px_rgba(59,130,246,0.3)]'
+                  : 'text-primary font-bold drop-shadow-[0_0_10px_rgba(16,185,129,0.3)]'
+                : accent
+                  ? 'text-muted-foreground hover:text-accent'
+                  : 'text-muted-foreground hover:text-primary'
+                }`}
             >
               <Icon className="w-4 h-4" /> {label}
             </Link>
@@ -121,7 +137,7 @@ function Header({ dark, setDark, onShowImpact }) {
           {/* Logout */}
           {showLogoutConfirm ? (
             <div className="flex items-center gap-1.5 text-sm">
-              <span className="text-muted-foreground hidden lg:inline text-xs">Log out?</span>
+              <span className="text-muted-foreground hidden lg:inline text-md">Logout?</span>
               <button onClick={() => { logout(); setShowLogoutConfirm(false); }} className="text-red-400 font-bold hover:text-red-300 transition-colors px-2 py-1 rounded border border-red-400/30 hover:border-red-400/60 text-xs">Yes</button>
               <button onClick={() => setShowLogoutConfirm(false)} className="text-muted-foreground hover:text-foreground transition-colors px-2 py-1 rounded border border-border text-xs">No</button>
             </div>
@@ -136,21 +152,20 @@ function Header({ dark, setDark, onShowImpact }) {
       {/* Mobile bottom nav */}
       <div className="md:hidden flex h-16 items-center px-2 justify-around border-t border-border bg-background/95 backdrop-blur fixed bottom-0 w-full z-50">
         {[
-          { to: '/',            icon: Leaf,      label: 'Home',    accent: false },
-          { to: '/engine',      icon: RouteIcon, label: 'Engine',  accent: true  },
-          { to: '/leaderboard', icon: Trophy,    label: 'Ranks',   accent: false },
-          { to: '/history',     icon: History,   label: 'History', accent: false },
-          { to: '/rewards',     icon: Gift,      label: 'Vault',   accent: false },
-          { to: '/profile',     icon: UserCircle,label: 'Profile', accent: false },
+          { to: '/', icon: Leaf, label: 'Home', accent: false },
+          { to: '/engine', icon: RouteIcon, label: 'Engine', accent: true },
+          { to: '/leaderboard', icon: Trophy, label: 'Ranks', accent: false },
+          { to: '/history', icon: History, label: 'History', accent: false },
+          { to: '/rewards', icon: Gift, label: 'Vault', accent: false },
+          { to: '/profile', icon: UserCircle, label: 'Profile', accent: false },
         ].map(({ to, icon: Icon, label, accent }) => (
           <Link
             key={to}
             to={to}
-            className={`flex flex-col items-center gap-0.5 transition-colors ${
-              isActive(to)
-                ? accent ? 'text-accent' : 'text-primary'
-                : accent ? 'text-muted-foreground hover:text-accent' : 'text-muted-foreground hover:text-primary'
-            }`}
+            className={`flex flex-col items-center gap-0.5 transition-colors ${isActive(to)
+              ? accent ? 'text-accent' : 'text-primary'
+              : accent ? 'text-muted-foreground hover:text-accent' : 'text-muted-foreground hover:text-primary'
+              }`}
           >
             <Icon className="w-5 h-5" />
             <span className="text-[9px] font-medium">{label}</span>
@@ -164,6 +179,7 @@ function Header({ dark, setDark, onShowImpact }) {
 // ── Animated Routes ──────────────────────────────────────────────────────────
 function AnimatedRoutes() {
   const location = useLocation();
+  usePageTitle();
   return (
     <AnimatePresence mode="wait">
       <motion.div
@@ -175,13 +191,13 @@ function AnimatedRoutes() {
         className="w-full h-full flex-1 flex justify-center pb-20 md:pb-0"
       >
         <Routes location={location} key={location.pathname}>
-          <Route path="/"            element={<ErrorBoundary><Dashboard /></ErrorBoundary>} />
-          <Route path="/engine"      element={<ErrorBoundary><SmartEngine /></ErrorBoundary>} />
+          <Route path="/" element={<ErrorBoundary><Dashboard /></ErrorBoundary>} />
+          <Route path="/engine" element={<ErrorBoundary><SmartEngine /></ErrorBoundary>} />
           <Route path="/leaderboard" element={<ErrorBoundary><Leaderboard /></ErrorBoundary>} />
-          <Route path="/rewards"     element={<ErrorBoundary><RewardsVault /></ErrorBoundary>} />
-          <Route path="/history"     element={<ErrorBoundary><HistoryPage /></ErrorBoundary>} />
-          <Route path="/profile"     element={<ErrorBoundary><ProfilePage /></ErrorBoundary>} />
-          <Route path="*"            element={<NotFound />} />
+          <Route path="/rewards" element={<ErrorBoundary><RewardsVault /></ErrorBoundary>} />
+          <Route path="/history" element={<ErrorBoundary><HistoryPage /></ErrorBoundary>} />
+          <Route path="/profile" element={<ErrorBoundary><ProfilePage /></ErrorBoundary>} />
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </motion.div>
     </AnimatePresence>
@@ -190,14 +206,15 @@ function AnimatedRoutes() {
 
 // ── App ──────────────────────────────────────────────────────────────────────
 export default function App() {
-  const { isAuthenticated, checkAuth, isLoading } = useAuthStore();
+  const { isAuthenticated, checkAuth, isLoading, user } = useAuthStore();
   const [dark, setDark] = useDarkMode();
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showImpact, setShowImpact] = useState(false);
 
   useEffect(() => {
     checkAuth();
-  }, [checkAuth]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Show onboarding on first ever login
   useEffect(() => {
@@ -224,6 +241,20 @@ export default function App() {
       <div className="min-h-[100dvh] bg-background text-foreground flex flex-col selection:bg-primary/30 items-center overflow-auto px-4 py-8 relative">
         <div className="absolute top-0 right-0 p-[20%] bg-accent/5 blur-[120px] rounded-full pointer-events-none" />
         <Auth />
+        <Toaster
+          position="bottom-right"
+          toastOptions={{
+            style: {
+              background: dark ? '#1c1c1e' : '#ffffff',
+              color: dark ? '#f0fdf4' : '#09090b',
+              border: `1px solid ${dark ? 'rgba(16,185,129,0.2)' : 'rgba(16,185,129,0.3)'}`,
+              borderRadius: '10px',
+              fontSize: '14px',
+              fontFamily: 'Inter, sans-serif',
+            },
+            error: { iconTheme: { primary: '#f87171', secondary: dark ? '#1c1c1e' : '#ffffff' }, duration: 5000 },
+          }}
+        />
       </div>
     );
   }
@@ -236,6 +267,30 @@ export default function App() {
       <main className="flex-1 flex flex-col items-center p-4 md:px-8 md:py-10 w-full z-10">
         <AnimatedRoutes />
       </main>
+      <Toaster
+        position="bottom-right"
+        toastOptions={{
+          style: {
+            background: dark ? '#1c1c1e' : '#ffffff',
+            color: dark ? '#f0fdf4' : '#09090b',
+            border: `1px solid ${dark ? 'rgba(16,185,129,0.2)' : 'rgba(16,185,129,0.3)'}`,
+            borderRadius: '10px',
+            fontSize: '14px',
+            fontFamily: 'Inter, sans-serif',
+            boxShadow: dark
+              ? '0 4px 24px rgba(0,0,0,0.4)'
+              : '0 4px 24px rgba(0,0,0,0.08)',
+          },
+          success: {
+            iconTheme: { primary: '#10b981', secondary: dark ? '#1c1c1e' : '#ffffff' },
+            duration: 4000,
+          },
+          error: {
+            iconTheme: { primary: '#f87171', secondary: dark ? '#1c1c1e' : '#ffffff' },
+            duration: 5000,
+          },
+        }}
+      />
     </div>
   );
 }

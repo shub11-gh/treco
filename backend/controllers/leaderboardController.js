@@ -5,7 +5,7 @@ export const getCampusLeaderboard = async (req, res) => {
     const collegeName = req.user.collegeName; 
 
     const topUsers = await User.find({ collegeName })
-      .select('name collegeName totalPoints currentStreak')
+      .select('name totalPoints currentStreak')
       .sort({ totalPoints: -1 })
       .limit(50);
       

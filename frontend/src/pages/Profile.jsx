@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { User, Mail, Building2, Zap, Flame, Trees, Lock, Shield, ShieldCheck } from 'lucide-react';
+import { User, Mail, Building2, Zap, Flame, Trees, Lock, Shield, ShieldCheck, TrendingUp } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -92,22 +92,27 @@ export default function Profile() {
                 <Building2 className="w-3.5 h-3.5" /> {user?.collegeName}
               </p>
             </div>
-            {/* Quick stats */}
-            <div className="flex gap-6 flex-wrap justify-center">
+            {/* Quick stats — 4 cards */}
+            <div className="flex gap-4 flex-wrap justify-center">
               <div className="flex flex-col items-center gap-1">
                 <div className="p-2 bg-accent/10 rounded-lg"><Zap className="w-5 h-5 text-accent" /></div>
-                <span className="text-xl font-bold">{user?.totalPoints || 0}</span>
+                <span className="text-xl font-bold">{(user?.totalPoints || 0).toLocaleString()}</span>
                 <span className="text-xs text-muted-foreground">Total Points</span>
               </div>
               <div className="flex flex-col items-center gap-1">
                 <div className="p-2 bg-orange-500/10 rounded-lg"><Flame className="w-5 h-5 text-orange-500" /></div>
                 <span className="text-xl font-bold">{user?.currentStreak || 0}</span>
-                <span className="text-xs text-muted-foreground">Day Streak</span>
+                <span className="text-xs text-muted-foreground">Streak</span>
+              </div>
+              <div className="flex flex-col items-center gap-1">
+                <div className="p-2 bg-yellow-500/10 rounded-lg"><TrendingUp className="w-5 h-5 text-yellow-500" /></div>
+                <span className="text-xl font-bold">{user?.bestStreak || user?.currentStreak || 0}</span>
+                <span className="text-xs text-muted-foreground">Best Streak</span>
               </div>
               <div className="flex flex-col items-center gap-1">
                 <div className="p-2 bg-primary/10 rounded-lg"><Trees className="w-5 h-5 text-primary" /></div>
                 <span className="text-xl font-bold">{co2Saved}</span>
-                <span className="text-xs text-muted-foreground">kg CO2 Saved</span>
+                <span className="text-xs text-muted-foreground">kg CO2</span>
               </div>
             </div>
           </CardContent>

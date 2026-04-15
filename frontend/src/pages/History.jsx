@@ -37,8 +37,15 @@ function tickColor() {
 function CustomTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-card border border-border rounded-lg px-3 py-2 text-xs shadow-xl">
-      <p className="font-semibold text-foreground mb-1">{label}</p>
+    <div
+      style={{
+        background: getComputedStyle(document.documentElement).getPropertyValue('--color-card').trim(),
+        border: `1px solid ${getComputedStyle(document.documentElement).getPropertyValue('--color-border').trim()}`,
+        color: getComputedStyle(document.documentElement).getPropertyValue('--color-card-foreground').trim(),
+      }}
+      className="rounded-lg px-3 py-2 text-xs shadow-xl"
+    >
+      <p className="font-semibold mb-1">{label}</p>
       {payload.map((p, i) => (
         <p key={i} style={{ color: p.color }}>{p.name}: {p.value} {p.name === 'CO2 Saved' ? 'kg' : 'pts'}</p>
       ))}
@@ -227,8 +234,8 @@ export default function History() {
             <CardContent>
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={chartData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-                  <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#71717a' }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 11, fill: '#71717a' }} axisLine={false} tickLine={false} />
+                  <XAxis dataKey="date" tick={{ fontSize: 11, fill: tickColor() }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 11, fill: tickColor() }} axisLine={false} tickLine={false} />
                   <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
                   <Bar dataKey="CO2 Saved" radius={[4, 4, 0, 0]} maxBarSize={40}>
                     {chartData.map((_, i) => <Cell key={i} fill="#10b981" fillOpacity={0.8} />)}
@@ -247,8 +254,8 @@ export default function History() {
             <CardContent>
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={chartData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-                  <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#71717a' }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 11, fill: '#71717a' }} axisLine={false} tickLine={false} />
+                  <XAxis dataKey="date" tick={{ fontSize: 11, fill: tickColor() }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 11, fill: tickColor() }} axisLine={false} tickLine={false} />
                   <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
                   <Bar dataKey="Points" radius={[4, 4, 0, 0]} maxBarSize={40}>
                     {chartData.map((_, i) => <Cell key={i} fill="#3b82f6" fillOpacity={0.8} />)}

@@ -11,6 +11,7 @@ export default function Auth() {
   const [isLogin, setIsLogin] = useState(true);
   const [formData, setFormData] = useState({ name: '', email: '', collegeName: '', password: '' });
   const [errorMsg, setErrorMsg] = useState('');
+  const [emailError, setEmailError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { login, register } = useAuthStore();
@@ -18,6 +19,12 @@ export default function Auth() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMsg('');
+    // Client-side college email check
+    if (!isLogin && !formData.email.endsWith('.edu.in')) {
+      setEmailError('Must be a college email ending in .edu.in');
+      return;
+    }
+    setEmailError('');
     setIsSubmitting(true);
     let res;
     if (isLogin) {
@@ -33,6 +40,7 @@ export default function Auth() {
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.id]: e.target.value });
+    if (e.target.id === 'email') setEmailError('');
   };
 
   return (
@@ -72,21 +80,32 @@ export default function Auth() {
                   <>
                     <div className="space-y-2">
                       <Label htmlFor="name">Full Name</Label>
-                      <Input id="name" value={formData.name} onChange={handleChange} placeholder="Your Name" required />
+                      <Input id="name" value={formData.name} onChange={handleChange} placeholder="Enter your name" required />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="collegeName">College Name</Label>
-                      <Input id="collegeName" value={formData.collegeName} onChange={handleChange} placeholder="Your University" required />
+                      <Input id="collegeName" value={formData.collegeName} onChange={handleChange} placeholder="Enter your university name" required />
                     </div>
                   </>
                 )}
                 <div className="space-y-2">
                   <Label htmlFor="email">College Email</Label>
-                  <Input id="email" type="email" value={formData.email} onChange={handleChange} placeholder="Your Student Email" required />
+                  <Input
+                    id="email"
+                    type="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    placeholder={isLogin ? 'Enter your college email' : 'Enter your college email'}
+                    required
+                    className={emailError ? 'border-red-500 focus-visible:ring-red-500' : ''}
+                  />
+                  {emailError && (
+                    <p className="text-xs text-red-500 flex items-center gap-1 mt-1">{emailError}</p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="password">Password</Label>
-                  <Input id="password" type="password" value={formData.password} onChange={handleChange} required />
+                  <Input id="password" type="password" value={formData.password} placeholder="Enter your password" onChange={handleChange} required />
                 </div>
                 <Button className="w-full mt-4 gap-2" type="submit" disabled={isSubmitting}>
                   {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
@@ -95,7 +114,11 @@ export default function Auth() {
               </form>
             </CardContent>
             <CardFooter className="flex justify-center border-t border-border/50 pt-4">
-              <Button variant="link" className="text-muted-foreground" onClick={() => { setIsLogin(!isLogin); setErrorMsg(''); }}>
+              <Button variant="link" className="text-muted-foreground" onClick={() => {
+                setIsLogin(!isLogin);
+                setErrorMsg('');
+                setEmailError('');
+              }}>
                 {isLogin ? "Don't have an account? Sign up" : "Already have an account? Sign in"}
               </Button>
             </CardFooter>

@@ -8,6 +8,7 @@ const userSchema = new mongoose.Schema({
   totalPoints:    { type: Number, default: 0 },
   spendablePoints:{ type: Number, default: 0 },
   currentStreak:  { type: Number, default: 0 },
+  bestStreak:     { type: Number, default: 0 },
   lastCommuteDate:{ type: Date },
   streakShield:   { type: Boolean, default: false }
 }, { timestamps: true });
