@@ -4,6 +4,8 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Zap, Trees, Clock, Wallet, MapPin, Sparkles, Navigation, Info } from 'lucide-react';
+import LocationInput from '../components/LocationInput';
+import MapModal from '../components/MapModal';
 import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
 import toast from 'react-hot-toast';
@@ -18,6 +20,9 @@ export default function SmartEngine() {
   const [aiRoutes, setAiRoutes] = useState(null);
   const [isMock, setIsMock] = useState(false);
   const [logging, setLogging] = useState(false);
+  
+  const [mapOpen, setMapOpen] = useState(false);
+  const [mapTarget, setMapTarget] = useState(null); // 'source' or 'destination'
 
   const { user, checkAuth } = useAuthStore();
 
@@ -88,42 +93,39 @@ export default function SmartEngine() {
       <div className="text-center md:text-left">
         <h1 className="text-3xl font-bold tracking-tight mb-2 flex justify-center md:justify-start items-center gap-2">
           <Sparkles className="w-8 h-8 text-accent animate-pulse" />
-          Treco Commute Engine
+          Tactical Routing Console
         </h1>
         <p className="text-muted-foreground max-w-2xl">Use Treco AI to instantly analyze traffic, distance, and emissions to find the optimal commute configuration.</p>
       </div>
 
+      <MapModal 
+        isOpen={mapOpen}
+        onClose={() => setMapOpen(false)}
+        onConfirm={(address) => {
+          if (mapTarget === 'source') setSource(address);
+          if (mapTarget === 'destination') setDestination(address);
+        }}
+      />
+
       {/* Input Section */}
-      <Card className="border-border bg-card/60 backdrop-blur">
+      <Card className="border-border/50 bg-card/40 backdrop-blur-xl shadow-2xl">
         <CardContent className="p-6">
-          <div className="flex flex-col md:flex-row gap-4 items-end">
-            <div className="w-full space-y-2">
-              <Label>Current Location / Origin</Label>
-              <div className="relative">
-                <MapPin className="absolute left-3 top-2.5 h-5 w-5 text-muted-foreground" />
-                <Input
-                  placeholder="e.g. Indiranagar Metro Station"
-                  className="pl-10 text-base"
-                  value={source}
-                  onChange={(e) => setSource(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && source && destination && handlePredict()}
-                />
-              </div>
-            </div>
-            <div className="w-full space-y-2">
-              <Label>Destination</Label>
-              <div className="relative">
-                <Navigation className="absolute left-3 top-2.5 h-5 w-5 text-muted-foreground" />
-                <Input
-                  placeholder="e.g. Reva College"
-                  className="pl-10 text-base"
-                  value={destination}
-                  onChange={(e) => setDestination(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && source && destination && handlePredict()}
-                />
-              </div>
-            </div>
-            <Button onClick={handlePredict} disabled={loading || !source || !destination} className="w-full md:w-auto h-11 px-8 gap-2 font-bold shadow-lg shadow-primary/20">
+          <div className="flex flex-col md:flex-row gap-6 items-end">
+            <LocationInput 
+              value={source} 
+              onChange={setSource} 
+              placeholder="e.g. Indiranagar Metro" 
+              type="origin" 
+              onMapSelect={() => { setMapTarget('source'); setMapOpen(true); }}
+            />
+            <LocationInput 
+              value={destination} 
+              onChange={setDestination} 
+              placeholder="e.g. Reva College" 
+              type="destination" 
+              onMapSelect={() => { setMapTarget('destination'); setMapOpen(true); }}
+            />
+            <Button onClick={handlePredict} disabled={loading || !source || !destination} className="w-full md:w-auto h-11 px-8 gap-2 font-bold shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-all rounded-xl">
               {loading ? (
                 <Sparkles className="w-4 h-4 animate-spin" />
               ) : (
@@ -162,9 +164,9 @@ export default function SmartEngine() {
             )}
             <div className="grid md:grid-cols-3 gap-6">
               {aiRoutes.map((route, idx) => (
-                <Card key={idx} className={`relative overflow-hidden flex flex-col ${route.isGreenChoice ? 'border-primary shadow-[0_0_30px_rgba(16,185,129,0.15)] bg-primary/5' : 'border-border bg-card'} hover:shadow-lg transition-all`}>
+                <Card key={idx} className={`relative overflow-hidden flex flex-col ${route.isGreenChoice ? 'border-primary shadow-[0_0_40px_rgba(16,185,129,0.15)] bg-primary/10' : 'border-border bg-card/40'} backdrop-blur-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1`}>
                   {route.isGreenChoice && (
-                    <div className="absolute top-0 w-full bg-primary text-primary-foreground text-xs font-bold text-center py-1 uppercase tracking-widest">
+                    <div className="absolute top-0 w-full bg-gradient-to-r from-primary to-emerald-400 text-primary-foreground text-xs font-black text-center py-1.5 uppercase tracking-widest shadow-[0_0_20px_rgba(16,185,129,0.5)]">
                       Green Choice + Max Points
                     </div>
                   )}
@@ -185,9 +187,9 @@ export default function SmartEngine() {
                       <div className="flex items-center gap-2 text-muted-foreground"><Wallet className="w-4 h-4" /> Cost</div>
                       <div className="font-bold font-mono text-lg">{route.costString}</div>
                     </div>
-                    <div className="flex items-center justify-between p-3 bg-background rounded-lg border border-border">
-                      <div className="flex items-center gap-2 text-muted-foreground"><Trees className="w-4 h-4" /> Saved</div>
-                      <div className="font-bold font-mono text-primary flex items-center gap-1">
+                    <div className="flex items-center justify-between p-3 bg-background/50 rounded-lg border border-border/50">
+                      <div className="flex items-center gap-2 text-muted-foreground"><Trees className="w-4 h-4 text-green-500" /> Saved</div>
+                      <div className="font-bold font-mono text-green-500 flex items-center gap-1">
                         {route.co2SavedKg} kg
                       </div>
                     </div>

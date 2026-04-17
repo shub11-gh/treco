@@ -1,4 +1,3 @@
-import { GoogleGenAI } from '@google/genai';
 import { z } from 'zod';
 
 export const aiCommuteSchema = z.object({
@@ -7,12 +6,11 @@ export const aiCommuteSchema = z.object({
   city: z.string().min(2).optional()
 });
 
-// Models tried in order — each has its own quota bucket
+// Groq models tried in order
 const MODEL_FALLBACKS = [
-  'gemini-2.0-flash-lite',
-  'gemini-1.5-flash',
-  'gemini-2.0-flash',
-  'gemini-1.5-flash-8b',
+  'llama-3.1-8b-instant',
+  'mixtral-8x7b-32768',
+  'gemma2-9b-it'
 ];
 
 // Mock fallback when ALL models are rate-limited
@@ -68,18 +66,22 @@ Rules:
 - co2SavedKg for Bus = distanceKm * 0.085 (rounded 2dp).
 - pointsEarned = Math.round(co2SavedKg * 10).
 
-Output ONLY a valid JSON array, no markdown, no explanation:
-[{"type":"Fastest","mode":"Cab","timeString":"25 min","costString":"INR 250","distanceKm":8.5,"co2SavedKg":0,"pointsEarned":0,"isGreenChoice":false}]`;
+- pointsEarned = Math.round(co2SavedKg * 10).
+
+Output MUST be a valid JSON object with a single key "routes" containing the array of 3 route objects.
+Example {"routes": [{"type":"Fastest","mode":"Cab","timeString":"25 min","costString":"INR 250","distanceKm":8.5,"co2SavedKg":0,"pointsEarned":0,"isGreenChoice":false}]}
+`;
 }
 
 function parseAndSanitize(text) {
   let parsed;
   try {
-    parsed = JSON.parse(text);
+    const raw = JSON.parse(text);
+    parsed = raw.routes || [];
   } catch {
-    const match = text.match(/\[[\s\S]*\]/);
+    const match = text.match(/\{[\s\S]*\}/);
     if (!match) throw new Error('AI returned invalid JSON.');
-    parsed = JSON.parse(match[0]);
+    parsed = JSON.parse(match[0]).routes || [];
   }
   return parsed.map(r => ({
     type:          r.type          || 'Route',
@@ -97,36 +99,49 @@ export const calculateAITrip = async (req, res) => {
   try {
     const { source, destination, city = 'your city' } = req.body;
 
-    if (!process.env.GEMINI_API_KEY) {
-      return res.status(500).json({ message: 'GEMINI_API_KEY is missing from backend .env' });
+    if (!process.env.GROQ_API_KEY) {
+      return res.status(500).json({ message: 'GROQ_API_KEY is missing from backend .env' });
     }
 
-    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
     const prompt = buildPrompt(source, destination, city);
 
     let lastError = null;
 
     for (const model of MODEL_FALLBACKS) {
       try {
-        const response = await ai.models.generateContent({
-          model,
-          contents: prompt,
-          config: { responseMimeType: 'application/json' },
+        const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Authorization": "Bearer " + process.env.GROQ_API_KEY,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            model: model,
+            messages: [{ role: "user", content: prompt }],
+            response_format: { type: "json_object" }
+          })
         });
-        const result = parseAndSanitize(response.text);
-        console.log(`[AI] Success with model: ${model}`);
+
+        const data = await response.json();
+        
+        if (!response.ok) {
+          throw new Error(data.error?.message || "Groq API Error: " + response.status);
+        }
+
+        const result = parseAndSanitize(data.choices[0].message.content);
+        console.log("[AI] Success with model: " + model);
         return res.json(result);
       } catch (err) {
-        const status = err?.status || err?.response?.status;
-        const isQuota = status === 429 || err?.message?.includes('429') || err?.message?.includes('quota');
-        console.warn(`[AI] Model ${model} failed (${isQuota ? 'quota' : 'error'}): ${err.message}`);
+        const isQuota = err.message.includes('429') || err.message.includes('Rate limit');
+        console.warn("[AI] Model " + model + " failed (" + (isQuota ? 'quota' : 'error') + "): " + err.message);
         lastError = err;
-        if (!isQuota) break; // Non-quota error — no point trying other models
+        // Continue to the next model for ANY error (decommissioned, quota, format error, etc)
+        continue;
       }
     }
 
     // All models exhausted — return mock data with a warning header
-    console.warn('[AI] All models quota-exceeded, returning mock routes.');
+    console.warn('[AI] All models failed, returning mock routes.');
     const mockRoutes = buildMockRoutes(source, destination);
     res.setHeader('X-AI-Fallback', 'quota-exceeded');
     return res.json(mockRoutes);

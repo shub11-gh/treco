@@ -90,7 +90,7 @@ export const logCommute = async (req, res) => {
       lastCommuteDate: now,
       currentStreak: newStreak,
       ...(consumeShield ? { streakShield: false } : {})
-    }, { new: true });
+    }, { returnDocument: 'after' });
 
     res.status(201).json({
       message: 'Commute logged successfully',

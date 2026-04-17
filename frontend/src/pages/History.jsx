@@ -126,18 +126,16 @@ export default function History() {
       </div>
 
       {activities.length > 0 && (
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-0 border border-border/50 rounded-2xl overflow-hidden bg-card/30 backdrop-blur-xl shadow-lg">
           {[
             { label: 'Total Trips', value: activities.length, unit: '' },
             { label: 'CO2 Saved', value: totalCO2, unit: ' kg' },
             { label: 'Points Earned', value: totalPts.toLocaleString(), unit: ' pts' },
-          ].map(({ label, value, unit }) => (
-            <Card key={label} className="border-border">
-              <CardContent className="p-4 text-center">
-                <p className="text-2xl font-black text-primary">{value}{unit}</p>
-                <p className="text-xs text-muted-foreground mt-1 font-medium uppercase tracking-wider">{label}</p>
-              </CardContent>
-            </Card>
+          ].map(({ label, value, unit }, idx, arr) => (
+            <div key={label} className={`p-4 md:p-6 text-center ${idx !== arr.length - 1 ? 'border-r border-border/50' : ''}`}>
+              <p className="text-2xl md:text-3xl font-black text-primary drop-shadow-sm">{value}{unit}</p>
+              <p className="text-xs text-muted-foreground mt-1 font-medium uppercase tracking-wider">{label}</p>
+            </div>
           ))}
         </div>
       )}
@@ -152,7 +150,7 @@ export default function History() {
               key={id}
               onClick={() => setTab(id)}
               className={`flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-semibold transition-all ${
-                tab === id ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                tab === id ? 'bg-background text-foreground shadow-lg shadow-background/20 backdrop-blur-md' : 'text-muted-foreground hover:text-foreground'
               }`}
             >
               <Icon className="w-4 h-4" /> {label}
@@ -190,25 +188,23 @@ export default function History() {
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: (gi * 3 + i) * 0.05 }}
                     >
-                      <Card className="border-border hover:border-primary/30 transition-colors">
+                      <Card className="border-border/40 bg-card/40 backdrop-blur-md hover:border-primary/50 hover:bg-card/70 transition-all shadow-sm hover:shadow-lg transform hover:-translate-y-px">
                         <CardContent className="p-4 flex items-center justify-between gap-4">
                           <div className="flex items-center gap-4">
-                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${cfg.bg}`}>
-                              <Icon className={`w-5 h-5 ${cfg.color}`} />
+                            <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${cfg.bg} border-t border-white/5`}>
+                              <Icon className={`w-6 h-6 ${cfg.color} drop-shadow-md`} />
                             </div>
                             <div>
-                              <p className="font-semibold">{cfg.label}</p>
-                              <p className="text-xs text-muted-foreground">{formatTime(act.createdAt)}</p>
+                              <p className="font-bold text-base">{cfg.label}</p>
+                              <p className="text-xs text-muted-foreground font-medium">{formatTime(act.createdAt)}</p>
                             </div>
                           </div>
-                          <div className="flex items-center gap-6 text-right">
-                            <div>
-                              <p className="text-sm font-bold text-primary">+{act.pointsEarned} pts</p>
-                              <p className="text-xs text-muted-foreground">{act.distanceKm} km</p>
+                          <div className="flex items-center gap-4 md:gap-8 text-right">
+                            <div className="bg-background/40 px-3 py-1.5 rounded-lg border border-border/50">
+                              <p className="text-sm font-black text-primary">+{act.pointsEarned} <span className="text-[10px] uppercase">pts</span></p>
                             </div>
-                            <div>
-                              <p className="text-sm font-bold text-green-400">{act.co2SavedKg} kg</p>
-                              <p className="text-xs text-muted-foreground">CO2 saved</p>
+                            <div className="hidden sm:block">
+                              <p className="text-sm font-black text-green-500 line-clamp-1">{act.co2SavedKg} kg <span className="text-xs text-muted-foreground font-normal">CO2</span></p>
                             </div>
                           </div>
                         </CardContent>
@@ -225,8 +221,8 @@ export default function History() {
       {/* Charts Tab */}
       {tab === 'charts' && activities.length > 0 && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col gap-6">
-          <Card className="border-border">
-            <CardHeader>
+          <Card className="border-border/50 bg-card/40 backdrop-blur-xl shadow-lg">
+            <CardHeader className="border-b border-border/30 bg-background/20">
               <CardTitle className="text-base flex items-center gap-2">
                 <BarChart2 className="w-4 h-4 text-primary" /> Last 7 Days — CO2 Saved (kg)
               </CardTitle>
@@ -245,8 +241,8 @@ export default function History() {
             </CardContent>
           </Card>
 
-          <Card className="border-border">
-            <CardHeader>
+          <Card className="border-border/50 bg-card/40 backdrop-blur-xl shadow-lg">
+            <CardHeader className="border-b border-border/30 bg-background/20">
               <CardTitle className="text-base flex items-center gap-2">
                 <BarChart2 className="w-4 h-4 text-accent" /> Last 7 Days — Points Earned
               </CardTitle>
@@ -266,8 +262,8 @@ export default function History() {
           </Card>
 
           {breakdownData.length > 0 && (
-            <Card className="border-border">
-              <CardHeader>
+            <Card className="border-border/50 bg-card/40 backdrop-blur-xl shadow-lg">
+              <CardHeader className="border-b border-border/30 bg-background/20">
                 <CardTitle className="text-base flex items-center gap-2">
                   <PieChart className="w-4 h-4 text-yellow-400" /> Transport Mode Breakdown
                 </CardTitle>
@@ -277,10 +273,10 @@ export default function History() {
                   const cfg = modeConfig[mode] || modeConfig.Bus;
                   const Icon = cfg.icon;
                   return (
-                    <div key={mode} className={`flex items-center gap-2 px-3 py-2 rounded-lg border border-border ${cfg.bg}`}>
-                      <Icon className={`w-4 h-4 ${cfg.color}`} />
-                      <span className="text-sm font-semibold">{cfg.label}</span>
-                      <span className="text-xs font-mono text-muted-foreground">{count}x</span>
+                    <div key={mode} className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border border-white/5 backdrop-blur shadow-sm ${cfg.bg}`}>
+                      <Icon className={`w-5 h-5 ${cfg.color} drop-shadow-sm`} />
+                      <span className="text-sm font-bold">{cfg.label}</span>
+                      <span className="text-xs font-black bg-background/50 px-2 py-0.5 rounded-md text-foreground">{count}x</span>
                     </div>
                   );
                 })}

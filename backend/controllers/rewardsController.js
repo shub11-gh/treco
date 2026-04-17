@@ -27,7 +27,7 @@ export const seedRewards = async (req, res) => {
       {
         title: 'Free Coffee',
         description: 'A hot cup of filter coffee from campus cafe.',
-        pointCost: 1500,
+        pointCost: 500,
         sponsorCollege: 'Campus Cafe',
         inventoryLimit: -1,
       },

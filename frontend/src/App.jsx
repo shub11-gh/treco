@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Routes, Route, Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LogOut, Leaf, Route as RouteIcon, Trophy, Gift, Moon, Sun, UserCircle, History, Sparkles } from 'lucide-react';
@@ -14,6 +15,8 @@ import Auth from './pages/Auth';
 import OnboardingModal from './components/OnboardingModal';
 import ErrorBoundary from './components/ErrorBoundary';
 import ImpactCard from './components/ImpactCard';
+import TopographicBackground from './components/ui/TopographicBackground';
+import EcoParticles from './components/ui/EcoParticles';
 import useAuthStore from './store/useAuthStore';
 
 // ── Page title hook ─────────────────────────────────────────────────────────
@@ -65,28 +68,25 @@ function Header({ dark, setDark, onShowImpact }) {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container flex h-16 items-center px-4 md:px-8 mx-auto justify-between">
+      <div className="container flex h-20 items-center px-4 md:px-8 mx-auto justify-between">
         {/* Logo */}
         <Link to="/" className="flex items-center gap-2" style={{ width: "200px" }}>
           <img
             src="/logo.png"
-            alt="CarbonCarver Logo"
+            alt="Treco Logo"
             className="h-15 w-auto object-contain"
             onError={(e) => {
               e.currentTarget.style.display = 'none';
               e.currentTarget.nextSibling.style.display = 'flex';
             }}
           />
-          <span className="items-center gap-2 font-bold text-lg md:text-xl text-primary tracking-tight hidden">
-            <div className="w-8 h-8 rounded bg-primary/20 flex items-center justify-center">
-              <Leaf className="w-5 h-5 text-primary" />
-            </div>
+          <span className="flex items-center gap-2 font-black text-2xl md:text-3xl text-primary tracking-tight">
             Treco
           </span>
         </Link>
 
         {/* Desktop nav */}
-        <nav className="hidden md:flex items-center justify-center flex-1 gap-6 text-sm font-medium">
+        <nav className="hidden md:flex items-center justify-center flex-1 gap-8 text-base font-medium">
           {navLinks.map(({ to, icon: Icon, label, accent }) => (
             <Link
               key={to}
@@ -100,7 +100,7 @@ function Header({ dark, setDark, onShowImpact }) {
                   : 'text-muted-foreground hover:text-primary'
                 }`}
             >
-              <Icon className="w-4 h-4" /> {label}
+              <Icon className="w-5 h-5" /> {label}
             </Link>
           ))}
         </nav>
@@ -113,7 +113,7 @@ function Header({ dark, setDark, onShowImpact }) {
             className="text-muted-foreground hover:text-foreground transition-colors p-2 rounded-lg hover:bg-muted"
             title={dark ? 'Switch to light mode' : 'Switch to dark mode'}
           >
-            {dark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            {dark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
           </button>
 
           {/* Share eco impact */}
@@ -122,7 +122,7 @@ function Header({ dark, setDark, onShowImpact }) {
             className="text-muted-foreground hover:text-primary transition-colors p-2 rounded-lg hover:bg-muted"
             title="My Eco Impact Card"
           >
-            <Sparkles className="w-4 h-4" />
+            <Sparkles className="w-5 h-5" />
           </button>
 
           {/* Profile link */}
@@ -131,21 +131,13 @@ function Header({ dark, setDark, onShowImpact }) {
             className={`p-2 rounded-lg hover:bg-muted transition-colors ${isActive('/profile') ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}
             title="My Profile"
           >
-            <UserCircle className="w-4 h-4" />
+            <UserCircle className="w-5 h-5" />
           </Link>
 
-          {/* Logout */}
-          {showLogoutConfirm ? (
-            <div className="flex items-center gap-1.5 text-sm">
-              <span className="text-muted-foreground hidden lg:inline text-md">Logout?</span>
-              <button onClick={() => { logout(); setShowLogoutConfirm(false); }} className="text-red-400 font-bold hover:text-red-300 transition-colors px-2 py-1 rounded border border-red-400/30 hover:border-red-400/60 text-xs">Yes</button>
-              <button onClick={() => setShowLogoutConfirm(false)} className="text-muted-foreground hover:text-foreground transition-colors px-2 py-1 rounded border border-border text-xs">No</button>
-            </div>
-          ) : (
-            <button onClick={() => setShowLogoutConfirm(true)} className="text-muted-foreground hover:text-red-400 transition-colors p-2 flex items-center gap-1.5 text-sm font-medium rounded-lg hover:bg-muted">
-              <LogOut className="w-4 h-4" />
-            </button>
-          )}
+          {/* Logout Trigger */}
+          <button onClick={() => setShowLogoutConfirm(true)} className="text-muted-foreground hover:text-red-400 transition-colors p-2 flex items-center gap-1.5 text-base font-medium rounded-lg hover:bg-muted" title="Logout">
+            <LogOut className="w-5 h-5" />
+          </button>
         </div>
       </div>
 
@@ -171,6 +163,98 @@ function Header({ dark, setDark, onShowImpact }) {
             <span className="text-[9px] font-medium">{label}</span>
           </Link>
         ))}
+      </div>
+
+      {/* Logout Modal Overlay */}
+      {createPortal(
+        <AnimatePresence>
+          {showLogoutConfirm && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4" style={{ top: 0, left: 0, right: 0, bottom: 0 }}>
+              <motion.div
+                initial={{ scale: 0.95, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.95, opacity: 0 }}
+                className="bg-card w-full max-w-sm rounded-[2rem] border border-border shadow-2xl p-6 md:p-8 text-center flex flex-col items-center"
+              >
+                <div className="w-16 h-16 bg-red-500/10 text-red-500 rounded-full flex items-center justify-center mb-6">
+                  <LogOut className="w-8 h-8 ml-1" />
+                </div>
+                <h3 className="text-2xl font-black mb-2 text-foreground tracking-tight">Ready to leave?</h3>
+                <p className="text-sm text-muted-foreground mb-8">
+                  Your eco-impact is safe with us. We'll be here when you're ready to hit the road again!
+                </p>
+                <div className="flex flex-col sm:flex-row gap-3 w-full">
+                  <button
+                    onClick={() => setShowLogoutConfirm(false)}
+                    className="flex-1 py-3 px-4 rounded-xl border border-border text-foreground font-bold hover:bg-muted transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => { logout(); setShowLogoutConfirm(false); }}
+                    className="flex-1 py-3 px-4 rounded-xl bg-red-500 text-white font-bold hover:bg-red-600 transition-colors shadow-lg shadow-red-500/20"
+                  >
+                    Logout
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
+    </header>
+  );
+}
+
+// ── Auth Header ─────────────────────────────────────────────────────────────
+function AuthHeader({ dark, setDark, authMode, setAuthMode }) {
+  return (
+    <header className="w-full border-b border-border bg-background/50 backdrop-blur-md sticky top-0 z-50">
+      <div className="container flex h-20 items-center px-4 md:px-8 mx-auto justify-between relative">
+        {/* Logo */}
+        <div className="flex items-center gap-3 relative z-10 w-[200px]">
+          <img src="/logo.png" alt="Treco Logo" className="h-10 md:h-12 w-auto object-contain" />
+          <span className="flex items-center gap-2 font-black text-2xl md:text-3xl text-primary tracking-tight">
+            Treco
+          </span>
+        </div>
+
+        {/* Middle Navigation (Hidden on small screens) */}
+        <nav className="hidden xl:flex absolute left-1/2 -translate-x-1/2 items-center gap-8 text-lg font-bold text-muted-foreground whitespace-nowrap">
+          <a href="#" className="hover:text-foreground transition-colors">Features</a>
+          <a href="#" className="hover:text-foreground transition-colors">Campuses</a>
+          <a href="#" className="hover:text-foreground transition-colors">Mission</a>
+          <a href="#" className="flex items-center gap-1.5 hover:text-foreground transition-colors">Global Leaderboard</a>
+        </nav>
+
+        {/* Right actions */}
+        <div className="flex items-center justify-end gap-3 md:gap-4 relative z-10 w-[200px]">
+          <div className="hidden sm:flex items-center gap-2 bg-muted/40 p-1 rounded-xl border border-border/50">
+            <button
+              onClick={() => setAuthMode('login')}
+              className={`px-2 py-2 rounded-lg text-sm font-bold transition-all ${authMode === 'login' ? 'bg-primary shadow-lg shadow-primary/20 text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+                }`}
+            >
+              Log In
+            </button>
+            <button
+              onClick={() => setAuthMode('signup')}
+              className={`px-2 py-2 rounded-lg text-sm font-bold transition-all ${authMode === 'signup' ? 'bg-primary shadow-lg shadow-primary/20 text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+                }`}
+            >
+              Sign Up
+            </button>
+          </div>
+
+          <button
+            onClick={() => setDark(d => !d)}
+            className="text-muted-foreground hover:text-foreground transition-colors p-2 rounded-lg hover:bg-muted"
+            title={dark ? 'Switch to light mode' : 'Switch to dark mode'}
+          >
+            {dark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+          </button>
+        </div>
       </div>
     </header>
   );
@@ -210,6 +294,7 @@ export default function App() {
   const [dark, setDark] = useDarkMode();
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showImpact, setShowImpact] = useState(false);
+  const [authMode, setAuthMode] = useState('login');
 
   useEffect(() => {
     checkAuth();
@@ -238,9 +323,17 @@ export default function App() {
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-[100dvh] bg-background text-foreground flex flex-col selection:bg-primary/30 items-center overflow-auto px-4 py-8 relative">
-        <div className="absolute top-0 right-0 p-[20%] bg-accent/5 blur-[120px] rounded-full pointer-events-none" />
-        <Auth />
+      <div className="min-h-[100dvh] bg-background text-foreground flex flex-col selection:bg-primary/30 relative overflow-hidden">
+        {/* Ambient background glows & Particles */}
+        <div className="absolute top-0 left-0 w-full lg:w-[800px] h-[500px] bg-gradient-to-b from-primary/10 to-transparent blur-[120px] pointer-events-none z-0" />
+        <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-accent/5 blur-[150px] rounded-full pointer-events-none z-0" />
+        <EcoParticles />
+
+        <AuthHeader dark={dark} setDark={setDark} authMode={authMode} setAuthMode={setAuthMode} />
+
+        <div className="flex-1 w-full flex items-center justify-center p-4 py-2 md:py-4 md:px-8 z-10 relative">
+          <Auth authMode={authMode} setAuthMode={setAuthMode} />
+        </div>
         <Toaster
           position="bottom-right"
           toastOptions={{
@@ -261,6 +354,7 @@ export default function App() {
 
   return (
     <div className="min-h-[100dvh] flex flex-col bg-background text-foreground selection:bg-primary/30 relative">
+      {!dark && <TopographicBackground />}
       {showOnboarding && <OnboardingModal onComplete={handleOnboardingComplete} />}
       {showImpact && <ImpactCard user={user} onClose={() => setShowImpact(false)} />}
       <Header dark={dark} setDark={setDark} onShowImpact={() => setShowImpact(true)} />
