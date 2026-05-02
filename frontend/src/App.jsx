@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Routes, Route, Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { LogOut, Leaf, Route as RouteIcon, Trophy, Gift, Moon, Sun, UserCircle, History, Sparkles } from 'lucide-react';
+import { LogOut, Leaf, Route as RouteIcon, Trophy, Gift, Moon, Sun, UserCircle, History, Sparkles, Menu, X } from 'lucide-react';
 import { Toaster } from 'react-hot-toast';
 import Dashboard from './pages/Dashboard';
 import SmartEngine from './pages/SmartEngine';
@@ -218,6 +218,8 @@ function Header({ dark, setDark, onShowImpact, setAuthMode }) {
 
 // ── Auth Header ─────────────────────────────────────────────────────────────
 function AuthHeader({ dark, setDark, authMode, setAuthMode }) {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
   return (
     <header className="w-full border-b border-border bg-background/50 backdrop-blur-md sticky top-0 z-50">
       <div className="container flex h-20 items-center px-4 md:px-8 mx-auto justify-between relative">
@@ -263,8 +265,51 @@ function AuthHeader({ dark, setDark, authMode, setAuthMode }) {
           >
             {dark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
           </button>
+
+          {/* Mobile Menu Toggle */}
+          <button
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="xl:hidden text-muted-foreground hover:text-foreground transition-colors p-2 rounded-lg hover:bg-muted"
+          >
+            {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+          </button>
         </div>
       </div>
+
+      {/* Mobile Menu Dropdown */}
+      <AnimatePresence>
+        {mobileMenuOpen && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="xl:hidden border-t border-border bg-background/95 backdrop-blur-md overflow-hidden"
+          >
+            <div className="flex flex-col px-6 py-6 gap-6">
+              <nav className="flex flex-col gap-4 text-lg font-medium text-foreground">
+                <a href="#features" onClick={() => setMobileMenuOpen(false)} className="hover:text-accent">Features</a>
+                <a href="#campuses" onClick={() => setMobileMenuOpen(false)} className="hover:text-accent">Campuses</a>
+                <a href="#mission" onClick={() => setMobileMenuOpen(false)} className="hover:text-accent">Mission</a>
+                <a href="#leaderboard" onClick={() => setMobileMenuOpen(false)} className="hover:text-accent">Global Leaderboard</a>
+              </nav>
+              <div className="flex flex-col gap-3 sm:hidden">
+                <button
+                  onClick={() => { setAuthMode('login'); setMobileMenuOpen(false); }}
+                  className="w-full py-3 rounded-lg text-center font-bold bg-muted text-foreground hover:bg-muted/80 border border-border"
+                >
+                  Log In
+                </button>
+                <button
+                  onClick={() => { setAuthMode('signup'); setMobileMenuOpen(false); }}
+                  className="w-full py-3 rounded-lg text-center font-bold bg-primary text-primary-foreground hover:bg-primary/90 shadow-md"
+                >
+                  Sign Up
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </header>
   );
 }
