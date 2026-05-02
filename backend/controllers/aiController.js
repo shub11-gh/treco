@@ -199,16 +199,33 @@ export const verifyTicketAI = async (imageUrl, transportMode) => {
   try {
     const visionModel = 'llama-3.2-11b-vision-preview';
     
-    const prompt = `You are the Treco Security Auditor. 
-Analyze this image and determine if it is a valid proof for a "${transportMode}" commute trip in an Indian city context (like Bangalore).
-- If it's a Bus/Metro/Auto: Look for a ticket, QR code, or paper receipt.
-- If it's Walk/Cycle: Look for an outdoor street, destination landmark, or a selfie in a public area.
-- If it's a Cab: Look for an app dashboard (Ola/Uber) or a car interior.
+    const prompt = `You are the Treco Security Auditor, performing strict Zero-Trust image validation and OCR. 
+Analyze this image and determine if it is a valid proof for a "${transportMode}" commute trip in an Indian city context (e.g., Bengaluru).
 
-RESPONSE FORMAT: You MUST return a JSON object with:
+STRICT REJECTION RULES:
+- If the image is a random picture (e.g., a laptop screen, a blank wall, a generic indoor selfie with no context, a stock photo), you MUST return "isVerified": false.
+- Do NOT hallucinate data. If you cannot clearly see a ticket or relevant commute context, reject it.
+
+VALIDATION CRITERIA:
+- Bus/Metro/Auto: Look for a physical ticket, QR code, digital pass, or receipt.
+- Walk/Cycle: Look for an outdoor street, destination landmark, or a selfie in a public transit area.
+- Cab: Look for a ride-hailing app dashboard (Ola/Uber/Rapido) or a clear car interior.
+
+DATA EXTRACTION (OCR):
+If a ticket or receipt is visible, extract the following fields (if missing, return null):
+- date: The date printed on the ticket.
+- source: Starting location.
+- destination: Ending location.
+- vehicleNo: Bus number, Cab plate number, or train number.
+
+RESPONSE FORMAT: You MUST return a JSON object exactly matching this schema:
 {
   "isVerified": boolean,
-  "reason": "Short explanation of what you see (max 10 words)"
+  "reason": "Short explanation of why it passed or failed (max 15 words)",
+  "extractedDate": "string or null",
+  "extractedSource": "string or null",
+  "extractedDestination": "string or null",
+  "extractedVehicleNo": "string or null"
 }`;
 
     const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {

@@ -9,27 +9,27 @@ const useAuthStore = create((set) => ({
 
   login: async (email, password) => {
     try {
-        const { data } = await api.post('/auth/login', { email, password });
-        localStorage.setItem('token', data.token);
-        set({ user: data.user, token: data.token, isAuthenticated: true, isLoading: false });
-        return { success: true };
+      const { data } = await api.post('/auth/login', { email, password });
+      localStorage.setItem('token', data.token);
+      set({ user: data.user, token: data.token, isAuthenticated: true, isLoading: false });
+      return { success: true };
     } catch (err) {
-        if (!err.response) return { success: false, error: 'Network Error: Is the backend server running on port 5000?' };
-        const msg = err.response?.data?.message || 'Login failed';
-        return { success: false, error: msg };
+      if (!err.response) return { success: false, error: 'Network Error' };
+      const msg = err.response?.data?.message || 'Login failed';
+      return { success: false, error: msg };
     }
   },
 
   register: async (name, email, collegeName, password) => {
     try {
-        const { data } = await api.post('/auth/register', { name, email, collegeName, password });
-        localStorage.setItem('token', data.token);
-        set({ user: data.user, token: data.token, isAuthenticated: true, isLoading: false });
-        return { success: true };
+      const { data } = await api.post('/auth/register', { name, email, collegeName, password });
+      localStorage.setItem('token', data.token);
+      set({ user: data.user, token: data.token, isAuthenticated: true, isLoading: false });
+      return { success: true };
     } catch (err) {
-        if (!err.response) return { success: false, error: 'Network Error: Is the backend server running on port 5000?' };
-        const msg = err.response?.data?.message || 'Registration failed';
-        return { success: false, error: msg };
+      if (!err.response) return { success: false, error: 'Network Error' };
+      const msg = err.response?.data?.message || 'Registration failed';
+      return { success: false, error: msg };
     }
   },
 

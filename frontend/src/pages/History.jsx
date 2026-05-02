@@ -118,11 +118,12 @@ export default function History() {
 
   return (
     <div className="w-full max-w-3xl flex flex-col gap-8">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight mb-2 flex items-center gap-3">
-          <Calendar className="w-8 h-8 text-primary" /> Activity History
+      <div className="text-center md:text-left">
+        <h1 className="text-3xl font-bold tracking-tight mb-2 flex justify-center md:justify-start items-center gap-3">
+          <Calendar className="w-10 h-10 text-primary" />
+          Activity History
         </h1>
-        <p className="text-muted-foreground">Your last {activities.length} eco-commutes — every trip counts.</p>
+        <p className="text-muted-foreground max-w-2xl mx-auto md:mx-0">Your last {activities.length} eco-commutes — every trip counts.</p>
       </div>
 
       {activities.length > 0 && (
@@ -143,7 +144,7 @@ export default function History() {
 
       {
         activities.length > 0 && (
-          <div className="flex gap-2 p-1 bg-muted rounded-lg w-fit">
+          <div className="flex gap-2 p-1 bg-muted rounded-lg w-fit mx-auto">
             {[
               { id: 'timeline', icon: Calendar, label: 'Timeline' },
               { id: 'charts', icon: BarChart2, label: 'CO2 Charts' },

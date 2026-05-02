@@ -127,9 +127,12 @@ export default function Profile() {
 
   return (
     <div className="w-full max-w-3xl flex flex-col gap-8">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight mb-2">My Profile</h1>
-        <p className="text-muted-foreground">Manage your account and track your impact.</p>
+      <div className="text-center md:text-left">
+        <h1 className="text-3xl font-bold tracking-tight mb-2 flex justify-center md:justify-start items-center gap-3">
+          <User className="w-10 h-10 text-primary" />
+          My Profile
+        </h1>
+        <p className="text-muted-foreground max-w-2xl mx-auto md:mx-0">Manage your account and track your impact.</p>
       </div>
 
       {/* Avatar + stats */}
@@ -241,7 +244,7 @@ export default function Profile() {
                       {user?.carbonDebt > 50 ? 'RANK FROZEN' : 'CLIMATE SAFE'}
                     </span>
                   </div>
-                  
+
                   {user?.carbonDebt > 50 ? (
                     <div className="space-y-3">
                       <div className="h-1.5 w-full bg-red-500/10 rounded-full overflow-hidden">
@@ -358,14 +361,14 @@ export default function Profile() {
             <TabsContent value="general" className="mt-0">
               <CardContent className="pt-6 space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="name">Display Name</Label>
+                  <Label htmlFor="name" className="m-1">Display Name</Label>
                   <div className="flex gap-3">
-                    <Input id="name" value={name} onChange={e => setName(e.target.value)} placeholder="Your name" className="flex-1 h-10" />
-                    <Button onClick={handleSaveName} disabled={savingName || !name.trim() || name === user?.name} className="h-10 px-6">
+                    <Input id="name" value={name} onChange={e => setName(e.target.value)} placeholder="Your name" className="flex-1 h-10 mt-1" />
+                    <Button onClick={handleSaveName} disabled={savingName || !name.trim() || name === user?.name} className="h-10 px-6 mt-1">
                       {savingName ? 'Saving...' : 'Save Changes'}
                     </Button>
                   </div>
-                  <p className="text-xs text-muted-foreground">This is how your name will appear on the global leaderboard.</p>
+                  <p className="text-xs text-muted-foreground m-1">This is how your name will appear on the global leaderboard.</p>
                 </div>
               </CardContent>
             </TabsContent>
@@ -392,19 +395,19 @@ export default function Profile() {
 
             <TabsContent value="danger" className="mt-0">
               <CardContent className="pt-6 space-y-6">
-                <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 flex gap-4 items-start">
-                  <AlertTriangle className="w-6 h-6 text-red-500 shrink-0" />
+                <div className="p-2 rounded-xl bg-red-500/10 border border-red-500/20 flex gap-3 items-start">
+                  <AlertTriangle className="w-6 h-6 text-red-500 shrink-0 mt-1" />
                   <div className="space-y-1">
                     <p className="text-sm text-red-400 font-medium">Removing your account is irreversible. You will lose your rank, streaks, and all spendable carbon points.</p>
                   </div>
                 </div>
 
-                <div className="flex flex-col gap-3">
+                <div className="flex flex-col gap-2">
                   <Button
                     variant="destructive"
                     onClick={handleDeleteAccount}
                     disabled={deletingAccount}
-                    className="w-full md:w-auto h-11 px-8 font-black uppercase tracking-widest shadow-md"
+                    className="w-full md:w-auto h-10 px-6  tracking-widest shadow-md"
                   >
                     <Trash2 className="w-4 h-4 mr-2" />
                     {deletingAccount ? 'Deleting...' : 'Delete My Account Permanently'}

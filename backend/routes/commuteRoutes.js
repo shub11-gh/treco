@@ -3,7 +3,7 @@ import { calculatePreview, logCommute, completeCommute, getActiveCommute, getHis
 import { schemaValidator } from '../middlewares/validate.js';
 import { validateToken } from '../middlewares/auth.js';
 import { calculateAITrip, aiCommuteSchema } from '../controllers/aiController.js';
-import upload from '../middleware/upload.js';
+import upload from '../middlewares/upload.js';
 
 const router = express.Router();
 

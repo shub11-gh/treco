@@ -68,7 +68,7 @@ export default function ImpactCard({ user, onClose }) {
           {/* Card — designed to be screenshotted */}
           <div
             id="eco-impact-card"
-            className="rounded-2xl overflow-hidden border border-primary/30 bg-card shadow-[0_0_60px_rgba(16,185,129,0.15)]"
+            className="rounded-2xl overflow-hidden border border-primary/30 bg-card"
           >
             {/* Header gradient bar */}
             <div className="h-1.5 w-full bg-gradient-to-r from-primary via-accent to-primary" />

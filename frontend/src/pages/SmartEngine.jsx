@@ -301,7 +301,7 @@ export default function SmartEngine() {
 
       {/* Input Section */}
       {!activeCommute && (
-        <Card className="border-border/50 bg-card/40 backdrop-blur-xl shadow-xl h-35">
+        <Card className="border-border/50 bg-card/40 backdrop-blur-xl shadow-xl">
           <CardContent className="p-6">
             <div className="flex flex-col md:flex-row gap-6 items-end">
               <LocationInput
@@ -318,23 +318,25 @@ export default function SmartEngine() {
                 type="destination"
                 onMapSelect={() => { setMapTarget('destination'); setMapOpen(true); }}
               />
-              <Button
-                onClick={handlePredict}
-                disabled={loading || !source || !destination}
-                className="w-full md:w-auto h-11 px-8 gap-2 font-bold hover:shadow-primary/40 transition-all rounded-xl"
-              >
-                {loading ? <Sparkles className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4 fill-current" />}
-                {loading ? 'Analyzing...' : 'Generate'}
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => { setSource(''); setDestination(''); setAiRoutes(null); setErrorMsg(''); }}
-                className="h-11 w-28 rounded-xl border-border/50 hover:bg-muted"
-                title="Clear Console"
-              >
-                <RefreshCw className="w-8 h-6 text-muted-foreground" />
-              </Button>
+              <div className="flex gap-3 w-full md:w-auto mt-2 md:mt-0">
+                <Button
+                  onClick={handlePredict}
+                  disabled={loading || !source || !destination}
+                  className="flex-1 md:w-auto h-11 px-8 gap-2 font-bold hover:shadow-primary/40 transition-all rounded-xl"
+                >
+                  {loading ? <Sparkles className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4 fill-current" />}
+                  {loading ? 'Analyzing...' : 'Generate'}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => { setSource(''); setDestination(''); setAiRoutes(null); setErrorMsg(''); }}
+                  className="h-11 w-11 shrink-0 rounded-xl border-border/50 hover:bg-muted"
+                  title="Clear Console"
+                >
+                  <RefreshCw className="w-5 h-5 text-muted-foreground" />
+                </Button>
+              </div>
             </div>
             {errorMsg && <p className="text-red-500 text-sm mt-4">{errorMsg}</p>}
           </CardContent>

@@ -217,6 +217,14 @@ export const uploadProof = async (req, res) => {
     activity.isVerified = aiResult.isVerified;
     activity.verificationReason = aiResult.reason;
     
+    // Save the new OCR extracted data
+    activity.extractedData = {
+      date: aiResult.extractedDate || null,
+      source: aiResult.extractedSource || null,
+      destination: aiResult.extractedDestination || null,
+      vehicleNo: aiResult.extractedVehicleNo || null
+    };
+    
     await activity.save();
 
     res.json({

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
-import { Coffee, Pizza, Laptop, Bus, Droplets, UtensilsCrossed, CheckCircle2, RefreshCw, Shield, Ticket, Smartphone, Gift, GraduationCap, CreditCard, Sparkles, Copy, Check, Gem } from 'lucide-react';
+import { Coffee, Pizza, Laptop, Bus, Droplets, UtensilsCrossed, CheckCircle2, RefreshCw, Shield, Ticket, Smartphone, Gift, GraduationCap, CreditCard, Sparkles, Copy, Check, ShoppingBag } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { QRCodeSVG } from 'qrcode.react';
 import toast from 'react-hot-toast';
@@ -112,15 +112,13 @@ export default function RewardsVault() {
 
   return (
     <div className="w-full max-w-5xl flex flex-col gap-8 pb-10">
-      <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
-        <div className="flex gap-5">
-          <Gem className="w-10 h-10 text-accent mt-2" />
-          <div>
-            <h1 className="text-4xl font-black tracking-tighter mb-1 bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
-              Rewards Vault
-            </h1>
-            <p className="text-muted-foreground font-medium">Redeem your green points for exclusive perks.</p>
-          </div>
+      <div className="flex flex-col md:flex-row items-center md:items-start justify-between gap-6">
+        <div className="text-center md:text-left">
+          <h1 className="text-4xl font-black tracking-tighter mb-2 flex justify-center md:justify-start items-center gap-3 bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+            <ShoppingBag className="w-10 h-10 text-accent" />
+            Rewards Vault
+          </h1>
+          <p className="text-muted-foreground font-medium max-w-2xl mx-auto md:mx-0">Redeem your green points for exclusive perks.</p>
         </div>
         <div className="bg-accent/10 border border-accent/20 px-5 py-3 rounded-2xl flex items-center gap-3">
           <div className="p-2 bg-accent rounded-lg text-accent-foreground">

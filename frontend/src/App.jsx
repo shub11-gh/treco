@@ -22,7 +22,7 @@ import useAuthStore from './store/useAuthStore';
 
 // ── Page title hook ─────────────────────────────────────────────────────────
 const PAGE_TITLES = {
-  '/': 'Dashboard — Treco',
+  '/': 'Home — Treco',
   '/engine': 'Smart Engine — Treco',
   '/leaderboard': 'Leaderboard — Treco',
   '/rewards': 'Rewards Vault — Treco',
@@ -60,7 +60,7 @@ function Header({ dark, setDark, onShowImpact, setAuthMode }) {
   const isActive = (path) => location.pathname === path;
 
   const navLinks = [
-    { to: '/', icon: Leaf, label: 'Dashboard', accent: false },
+    { to: '/', icon: Leaf, label: 'Home', accent: false },
     { to: '/engine', icon: RouteIcon, label: 'Engine', accent: true },
     { to: '/leaderboard', icon: Trophy, label: 'Leaderboard', accent: false },
     { to: '/rewards', icon: Gift, label: 'Rewards', accent: false },
@@ -68,10 +68,11 @@ function Header({ dark, setDark, onShowImpact, setAuthMode }) {
   ];
 
   return (
+    <>
     <header className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-20 items-center px-4 md:px-8 mx-auto justify-between">
         {/* Logo */}
-        <Link to="/" className="flex items-center gap-2" style={{ width: "200px" }}>
+        <Link to="/" className="flex shrink-0 items-center gap-2">
           <img
             src="/trecoLogo.png"
             alt="Treco Logo"
@@ -107,7 +108,7 @@ function Header({ dark, setDark, onShowImpact, setAuthMode }) {
         </nav>
 
         {/* Right actions */}
-        <div className="flex items-center justify-end gap-2" style={{ width: "200px" }}>
+        <div className="flex shrink-0 items-center justify-end gap-2">
           {/* Dark mode toggle */}
           <button
             onClick={() => setDark(d => !d)}
@@ -141,6 +142,7 @@ function Header({ dark, setDark, onShowImpact, setAuthMode }) {
           </button>
         </div>
       </div>
+    </header>
 
       {/* Mobile bottom nav */}
       <div className="md:hidden flex h-16 items-center px-2 justify-around border-t border-border bg-background/95 backdrop-blur fixed bottom-0 w-full z-50">
@@ -150,7 +152,6 @@ function Header({ dark, setDark, onShowImpact, setAuthMode }) {
           { to: '/leaderboard', icon: Trophy, label: 'Ranks', accent: false },
           { to: '/history', icon: History, label: 'History', accent: false },
           { to: '/rewards', icon: Gift, label: 'Vault', accent: false },
-          { to: '/profile', icon: UserCircle, label: 'Profile', accent: false },
         ].map(({ to, icon: Icon, label, accent }) => (
           <Link
             key={to}
@@ -211,7 +212,7 @@ function Header({ dark, setDark, onShowImpact, setAuthMode }) {
         </AnimatePresence>,
         document.body
       )}
-    </header>
+    </>
   );
 }
 

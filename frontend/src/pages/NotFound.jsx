@@ -36,7 +36,7 @@ export default function NotFound() {
       >
         <h1 className="text-2xl font-bold">Page not found</h1>
         <p className="text-muted-foreground max-w-sm">
-          Looks like this route went off the green path. Head back to the dashboard to continue your eco journey.
+          Looks like this route went off the green path. Head back to Home to continue your eco journey.
         </p>
       </motion.div>
 
@@ -48,7 +48,7 @@ export default function NotFound() {
       >
         <Button asChild>
           <Link to="/" className="gap-2">
-            <Home className="w-4 h-4" /> Go to Dashboard
+            <Home className="w-4 h-4" /> Go to Home
           </Link>
         </Button>
         <Button variant="outline" onClick={() => window.history.back()} className="gap-2 text-foreground">

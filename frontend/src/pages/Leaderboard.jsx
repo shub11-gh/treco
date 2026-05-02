@@ -59,20 +59,14 @@ export default function Leaderboard() {
 
   return (
     <div className="w-full max-w-3xl flex flex-col gap-8">
-      <div className="flex justify-between items-start">
-        <div className="flex gap-4">
-          <Trophy className="w-10 h-10 text-yellow-500 mt-2" />
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight mb-1">Campus Leaderboard</h1>
-            <p className="text-muted-foreground">{user?.collegeName || 'Your Campus'} Rankings</p>
-          </div>
+      <div className="relative flex flex-col md:flex-row justify-between items-center md:items-start gap-4">
+        <div className="text-center md:text-left w-full">
+          <h1 className="text-3xl font-bold tracking-tight mb-2 flex justify-center md:justify-start items-center gap-3">
+            <Trophy className="w-10 h-10 text-yellow-500" />
+            Campus Leaderboard
+          </h1>
+          <p className="text-muted-foreground mx-auto md:mx-0">{user?.collegeName || 'Your Campus'} Rankings</p>
         </div>
-        <button
-          onClick={fetchLeaderboard}
-          className="mt-2 p-2 text-muted-foreground hover:text-primary transition-colors bg-muted/50 rounded-lg border border-border/50"
-        >
-          <RefreshCw className="w-5 h-5" />
-        </button>
       </div>
 
       {/* Top 3 Podium */}

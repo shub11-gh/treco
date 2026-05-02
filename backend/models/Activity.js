@@ -24,7 +24,13 @@ const activitySchema = new mongoose.Schema({
   // MANDATORY PROOF FIELDS
   proofUrl: { type: String }, 
   isVerified: { type: Boolean, default: false },
-  verificationReason: { type: String } // Stores AI's reasoning (e.g., "Matched Bus Ticket")
+  verificationReason: { type: String }, // Stores AI's reasoning
+  extractedData: {
+    date: { type: String },
+    source: { type: String },
+    destination: { type: String },
+    vehicleNo: { type: String }
+  }
 }, { timestamps: true });
 
 activitySchema.index({ startLocation: '2dsphere' });
