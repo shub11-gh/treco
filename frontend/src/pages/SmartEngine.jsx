@@ -28,6 +28,12 @@ export default function SmartEngine() {
   const [elapsed, setElapsed] = useState(0);
   const [recovering, setRecovering] = useState(true);
 
+  // Proof/verification state — declared before the session recovery useEffect that uses them
+  const [uploadingProof, setUploadingProof] = useState(false);
+  const [proofPreview, setProofPreview] = useState(null);
+  const [isVerified, setIsVerified] = useState(false);
+  const [notificationPermission, setNotificationPermission] = useState('default');
+
   const { user, checkAuth } = useAuthStore();
   
   const getFullUrl = (url) => {
@@ -143,10 +149,7 @@ export default function SmartEngine() {
     });
   };
 
-  const [uploadingProof, setUploadingProof] = useState(false);
-  const [proofPreview, setProofPreview] = useState(null);
-  const [isVerified, setIsVerified] = useState(false);
-  const [notificationPermission, setNotificationPermission] = useState('default');
+
 
   // Request notification permission on mount
   React.useEffect(() => {
@@ -236,7 +239,7 @@ export default function SmartEngine() {
     setLogging(true);
     try {
       // Verification logic - Flexible bypass for demo presentation
-      if (!bypass && !user?.email?.toLowerCase().includes('shub')) {
+      if (!bypass && user?.email?.toLowerCase() !== 'shub@college.edu.in') {
         // GPS Handshake
         if (!isVerified) {
           throw new Error("Proof Required: Please upload your ticket or destination selfie first.");

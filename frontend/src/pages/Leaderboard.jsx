@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Trophy, TrendingUp, TrendingDown, Minus, RefreshCw, Flame, Crown } from 'lucide-react';
+import { Trophy, TrendingUp, TrendingDown, Minus, Flame, Crown } from 'lucide-react';
 import { Card, CardContent } from '../components/ui/card';
 import api from '../lib/api';
 import useAuthStore from '../store/useAuthStore';

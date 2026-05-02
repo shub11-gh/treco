@@ -7,7 +7,7 @@ const router = express.Router();
 
 router.post('/register', schemaValidator(registerSchema), register);
 router.post('/login', schemaValidator(loginSchema), login);
-router.get('/demo-setup', demoSetup);
+router.get('/demo-setup', validateToken, demoSetup);
 router.post('/redeem', validateToken, redeemPoints);
 router.get('/me', validateToken, getMe);
 router.get('/stats', validateToken, getProfileStats);

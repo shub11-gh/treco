@@ -145,7 +145,7 @@ function Header({ dark, setDark, onShowImpact, setAuthMode }) {
     </header>
 
       {/* Mobile bottom nav */}
-      <div className="md:hidden flex h-16 items-center px-2 justify-around border-t border-border bg-background/95 backdrop-blur fixed bottom-0 w-full z-50">
+      <div className="md:hidden flex h-20 items-center px-2 justify-around border-t border-border bg-background/95 backdrop-blur fixed bottom-0 w-full z-50 pb-safe">
         {[
           { to: '/', icon: Leaf, label: 'Home', accent: false },
           { to: '/engine', icon: RouteIcon, label: 'Engine', accent: true },
@@ -325,7 +325,7 @@ function AnimatedRoutes() {
         animate={{ opacity: 1, filter: 'blur(0px)' }}
         exit={{ opacity: 0, filter: 'blur(4px)' }}
         transition={{ duration: 0.25, ease: 'easeOut' }}
-        className="w-full h-full flex-1 flex justify-center pb-20 md:pb-0"
+        className="w-full h-full flex-1 flex justify-center pb-24 md:pb-0"
       >
         <Routes location={location} key={location.pathname}>
           <Route path="/" element={<ErrorBoundary><Dashboard /></ErrorBoundary>} />

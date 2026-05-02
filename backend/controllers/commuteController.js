@@ -135,7 +135,7 @@ export const completeCommute = async (req, res) => {
     const { activityId, bypass = false } = req.body;
     const userId = req.user.userId;
     const user = await User.findById(userId);
-    const isDemoBypass = bypass && user?.email?.toLowerCase().includes('shub');
+    const isDemoBypass = bypass && user?.email?.toLowerCase() === 'shub@college.edu.in';
 
     const activity = await Activity.findOne({ _id: activityId, userId });
     if (!activity) return res.status(404).json({ message: 'Commute session not found' });
