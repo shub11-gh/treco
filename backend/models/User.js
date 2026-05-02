@@ -10,7 +10,8 @@ const userSchema = new mongoose.Schema({
   currentStreak:  { type: Number, default: 0 },
   bestStreak:     { type: Number, default: 0 },
   lastCommuteDate:{ type: Date },
-  streakShield:   { type: Boolean, default: false }
+  streakShield:   { type: Boolean, default: false },
+  carbonDebt:      { type: Number, default: 0 } 
 }, { timestamps: true });
 
 userSchema.index({ collegeName: 1, totalPoints: -1 });

@@ -2,30 +2,45 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
-import { Coffee, Pizza, Laptop, Bus, Droplets, UtensilsCrossed, CheckCircle2, RefreshCw, Shield } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { Coffee, Pizza, Laptop, Bus, Droplets, UtensilsCrossed, CheckCircle2, RefreshCw, Shield, Ticket, Smartphone, Gift, GraduationCap, CreditCard, Sparkles, Copy, Check, Gem } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { QRCodeSVG } from 'qrcode.react';
 import toast from 'react-hot-toast';
 import api from '../lib/api';
 import useAuthStore from '../store/useAuthStore';
 import { CardGridSkeleton } from '../components/Skeletons';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/tabs';
 
-// Map reward titles to icons (fallback to a generic icon)
+// Map reward titles to icons
 const iconMap = {
-  'Free Coffee':          Coffee,
-  '20% Off Pizza':        Pizza,
-  'MacBook Skin':         Laptop,
-  'Bus Pass (1 Week)':    Bus,
-  'Eco Water Bottle':     Droplets,
+  'Free Coffee': Coffee,
+  '20% Off Pizza': Pizza,
+  'MacBook Skin': Laptop,
+  'Bus Pass (1 Week)': Bus,
+  'Eco Water Bottle': Droplets,
   'Canteen Meal Voucher': UtensilsCrossed,
-  'Streak Shield':        Shield,
+  'Streak Shield': Shield,
+  'Amazon Voucher': Smartphone,
+  'Movie Ticket': Ticket,
+  'Wireless Earbuds': Gift,
+  'Attendance Buffer': GraduationCap,
+  'Flipkart Gift Card': CreditCard,
+};
+
+const categoryStyles = {
+  'Food': { color: 'text-orange-500', bg: 'bg-orange-500/10', border: 'border-orange-500/20', hover: 'hover:border-orange-500/50' },
+  'Academic': { color: 'text-yellow-500', bg: 'bg-yellow-500/10', border: 'border-yellow-500/20', hover: 'hover:border-yellow-500/50' },
+  'Digital Cash': { color: 'text-cyan-500', bg: 'bg-cyan-500/10', border: 'border-cyan-500/20', hover: 'hover:border-cyan-500/50' },
+  'Tech': { color: 'text-violet-500', bg: 'bg-violet-500/10', border: 'border-violet-500/20', hover: 'hover:border-violet-500/50' },
+  'Lifestyle': { color: 'text-rose-500', bg: 'bg-rose-500/10', border: 'border-rose-500/20', hover: 'hover:border-rose-500/50' },
+  'General': { color: 'text-primary', bg: 'bg-primary/10', border: 'border-primary/20', hover: 'hover:border-primary/50' }
 };
 
 function getIcon(title) {
-  return iconMap[title] || Coffee;
+  const entry = Object.entries(iconMap).find(([k]) => title.includes(k));
+  return entry ? entry[1] : Gift;
 }
 
-// Generate a stable redemption code for each reward claim session
 function genRedemptionCode(rewardId) {
   return `TRC-${rewardId.toString().slice(-4).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
 }
@@ -34,7 +49,9 @@ export default function RewardsVault() {
   const [claimedIds, setClaimedIds] = useState([]);
   const [rewards, setRewards] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('All');
   const [redemptionCodes, setRedemptionCodes] = useState({});
+  const [copiedId, setCopiedId] = useState(null);
   const { user, checkAuth } = useAuthStore();
 
   useEffect(() => {
@@ -54,7 +71,6 @@ export default function RewardsVault() {
   };
 
   const handleDialogOpen = (reward) => {
-    // Generate a stable code when dialog opens
     if (!redemptionCodes[reward._id]) {
       setRedemptionCodes(prev => ({
         ...prev,
@@ -65,14 +81,25 @@ export default function RewardsVault() {
 
   const handleClaim = async (reward) => {
     try {
-      await api.post('/auth/redeem', { cost: reward.pointCost });
-      setClaimedIds([...claimedIds, reward._id]);
+      await api.post('/auth/redeem', { rewardId: reward._id });
+      setClaimedIds(prev => [...prev, reward._id]);
       checkAuth();
-      toast.success(`${reward.title} redeemed successfully! Show the QR code to claim.`);
+      toast.success(`${reward.title} redeemed!`);
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to claim reward');
     }
   };
+
+  const handleCopyCode = (id, code) => {
+    navigator.clipboard.writeText(code);
+    setCopiedId(id);
+    toast.success('Code copied to clipboard!');
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const filteredRewards = activeTab === 'All'
+    ? rewards
+    : rewards.filter(r => r.category === activeTab);
 
   if (loading) {
     return (
@@ -84,115 +111,192 @@ export default function RewardsVault() {
   }
 
   return (
-    <div className="w-full max-w-5xl flex flex-col gap-8">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight mb-2">Rewards Vault</h1>
-        <p className="text-muted-foreground">
-          Trade your spendable carbon points for real-world perks. You currently have{' '}
-          <strong className="text-primary">{user?.spendablePoints || 0} pts</strong> available to spend.
-        </p>
+    <div className="w-full max-w-5xl flex flex-col gap-8 pb-10">
+      <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
+        <div className="flex gap-5">
+          <Gem className="w-10 h-10 text-accent mt-2" />
+          <div>
+            <h1 className="text-4xl font-black tracking-tighter mb-1 bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+              Rewards Vault
+            </h1>
+            <p className="text-muted-foreground font-medium">Redeem your green points for exclusive perks.</p>
+          </div>
+        </div>
+        <div className="bg-accent/10 border border-accent/20 px-5 py-3 rounded-2xl flex items-center gap-3">
+          <div className="p-2 bg-accent rounded-lg text-accent-foreground">
+            <Sparkles className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="text-[10px] font-bold text-accent uppercase tracking-widest">Spendable Balance</div>
+            <div className="text-2xl font-black font-mono leading-none">{user?.spendablePoints || 0} pts</div>
+          </div>
+        </div>
       </div>
 
-      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 relative z-10">
-        {rewards.map((reward, i) => {
-          const Icon = getIcon(reward.title);
-          const isClaimed = claimedIds.includes(reward._id);
-          const canAfford = (user?.spendablePoints || 0) >= reward.pointCost;
-          const code = redemptionCodes[reward._id] || '';
-
-          return (
-            <motion.div
-              key={reward._id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.08 }}
+      <Tabs defaultValue="All" onValueChange={setActiveTab} className="w-full">
+        <TabsList className="bg-background/50 border border-border/50 p-1 rounded-xl h-auto flex flex-wrap gap-1 mb-6">
+          {['All', 'Digital Cash', 'Tech', 'Food', 'Lifestyle', 'Academic'].map(cat => (
+            <TabsTrigger
+              key={cat}
+              value={cat}
+              className="rounded-lg px-6 py-2.5 font-bold data-[state=active]:bg-primary/70 data-[state=active]:text-foreground transition-all"
             >
-              <Card
-                className={`border-border bg-card hover:border-accent transition-all duration-300 h-full flex flex-col drop-shadow-sm hover:drop-shadow-[0_0_15px_rgba(59,130,246,0.1)]
-                  ${(!canAfford && !isClaimed) ? 'opacity-50 grayscale select-none pointer-events-none' : ''}`}
-              >
-                <CardHeader>
-                  <div className="w-12 h-12 bg-accent/10 rounded-xl flex items-center justify-center mb-4 text-accent border border-accent/20">
-                    <Icon className="w-6 h-6" />
-                  </div>
-                  <CardTitle>{reward.title}</CardTitle>
-                  <CardDescription>{reward.sponsorCollege}</CardDescription>
-                </CardHeader>
-                <CardContent className="flex-1">
-                  <p className="text-sm text-muted-foreground mb-4">{reward.description}</p>
-                  <div className="flex items-center gap-3">
-                    <div className="inline-block bg-muted px-3 py-1 rounded-md font-mono font-bold text-lg text-primary">
-                      {reward.pointCost.toLocaleString()} pts
-                    </div>
-                    {reward.inventoryLimit > 0 && (
-                      <span className="text-xs text-muted-foreground">{reward.inventoryLimit} left</span>
-                    )}
-                  </div>
-                </CardContent>
-                <CardFooter>
-                  <Dialog>
-                    <DialogTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className="w-full relative overflow-hidden group border-primary/20 hover:border-primary/50 text-foreground"
-                        onClick={() => handleDialogOpen(reward)}
-                      >
-                        <span className="relative z-10 font-bold flex items-center gap-1.5 group-hover:text-primary-foreground transition-colors">
-                          {isClaimed
-                            ? <><CheckCircle2 className="w-4 h-4" /> Claimed</>  
-                            : 'Claim QR'}
-                        </span>
-                        <div className="absolute inset-0 bg-primary translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out" />
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="sm:max-w-md border-primary/20 bg-background/95 backdrop-blur-xl">
-                      <DialogHeader>
-                        <DialogTitle className="text-2xl">Redeem {reward.title}</DialogTitle>
-                        <DialogDescription>
-                          Present this QR code to {reward.sponsorCollege} at checkout. Cost: {reward.pointCost.toLocaleString()} pts.
-                        </DialogDescription>
-                      </DialogHeader>
-                      <div className="flex flex-col items-center justify-center p-6 space-y-4">
-                        {/* Real QR Code */}
-                        <div className="bg-white p-4 rounded-xl shadow-inner">
-                          <QRCodeSVG
-                            value={`TRECO:REDEEM:${reward._id}:${user?._id}:${code}`}
-                            size={160}
-                            bgColor="#ffffff"
-                            fgColor="#000000"
-                            level="M"
-                          />
-                        </div>
-                        <div className="text-sm font-mono text-foreground font-bold tracking-widest bg-muted px-4 py-2 rounded-md">
-                          {code}
-                        </div>
+              {cat}
+            </TabsTrigger>
+          ))}
+        </TabsList>
 
-                        {isClaimed ? (
-                          <motion.div
-                            initial={{ scale: 0 }}
-                            animate={{ scale: 1 }}
-                            className="flex items-center gap-2 text-primary mt-2 bg-primary/10 px-4 py-2 rounded-full font-bold"
-                          >
-                            <CheckCircle2 className="w-5 h-5" />
-                            <span>Successfully Redeemed!</span>
-                          </motion.div>
-                        ) : (
-                          <Button
-                            onClick={() => handleClaim(reward)}
-                            className="w-full mt-4 font-bold shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-all"
-                          >
-                            Confirm &amp; Deduct Points
-                          </Button>
-                        )}
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-                </CardFooter>
-              </Card>
+        <AnimatePresence mode="wait">
+          <TabsContent value={activeTab} key={activeTab} className="mt-0">
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 relative z-10"
+            >
+              {filteredRewards.length > 0 ? (
+                filteredRewards.map((reward, i) => {
+                  const Icon = getIcon(reward.title);
+                  const isClaimed = claimedIds.includes(reward._id);
+                  const canAfford = (user?.spendablePoints || 0) >= reward.pointCost;
+                  const code = redemptionCodes[reward._id] || '';
+                  const style = categoryStyles[reward.category] || categoryStyles.General;
+
+                  return (
+                    <motion.div
+                      key={reward._id}
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: i * 0.05 }}
+                      className="h-full"
+                    >
+                      <Card
+                        className={`border-border/50 bg-card/40 backdrop-blur-xl transition-all duration-300 h-full flex flex-col group relative overflow-hidden
+                          ${canAfford || isClaimed ? style.hover : ''}
+                          ${(!canAfford && !isClaimed) ? 'opacity-60' : ''}`}
+                      >
+                        <CardHeader className="pb-3">
+                          <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 border transition-colors 
+                            ${canAfford || isClaimed ? `${style.bg} ${style.border} ${style.color}` : 'bg-muted border-border text-muted-foreground'}`}>
+                            <Icon className="w-6 h-6" />
+                          </div>
+                          <div className="flex flex-col gap-0.5">
+                            <span className={`text-[10px] font-black uppercase tracking-[0.2em] ${canAfford || isClaimed ? style.color : 'text-muted-foreground'}`}>
+                              {reward.category || 'General'}
+                            </span>
+                            <CardTitle className="text-xl font-bold mt-1">{reward.title}</CardTitle>
+                          </div>
+                        </CardHeader>
+                        <CardContent className="flex-1 pb-4 flex flex-col">
+                          <p className="text-sm text-muted-foreground leading-relaxed mb-6">{reward.description}</p>
+                          <div className="flex items-center justify-between mt-auto bg-background/50 p-3 rounded-xl border border-border/50">
+                            <div className={`text-xl font-black font-mono ${canAfford || isClaimed ? style.color : 'text-muted-foreground'}`}>
+                              {reward.pointCost.toLocaleString()} <span className="text-[10px] uppercase ml-0.5">pts</span>
+                            </div>
+                          </div>
+                        </CardContent>
+                        <CardFooter className="pt-0">
+                          <Dialog onOpenChange={(open) => open && handleDialogOpen(reward)}>
+                            <DialogTrigger asChild>
+                              <Button
+                                variant="outline"
+                                className={`w-full py-6 rounded-xl font-black transition-all ${canAfford || isClaimed ? 'hover:bg-muted-foreground/10 hover:text-primary-foreground border-muted-foreground/20' : 'cursor-not-allowed grayscale opacity-50'}`}
+                              >
+                                {isClaimed ? (
+                                  <span className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4" />View Code</span>
+                                ) : (
+                                  <span>{canAfford ? 'Redeem Reward' : `Need ${(reward.pointCost - (user?.spendablePoints || 0)).toLocaleString()} pts`}</span>
+                                )}
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent className="sm:max-w-md border-primary/20 bg-background/95 backdrop-blur-2xl">
+                              <DialogHeader>
+                                <div className="flex items-center gap-4 mb-4">
+                                  <div className="w-12 h-12 bg-primary/10 rounded-2xl p-2 border border-primary/20 flex items-center justify-center">
+                                    <img src="/trecoLogo.png" alt="" className="w-full h-full object-contain" />
+                                  </div>
+                                  <div>
+                                    <DialogTitle className="text-2xl font-black tracking-tight">{reward.title}</DialogTitle>
+                                    <DialogDescription className="font-bold text-primary">
+                                      Powered by {reward.sponsorCollege}
+                                    </DialogDescription>
+                                  </div>
+                                </div>
+                              </DialogHeader>
+
+                              <div className="flex flex-col items-center justify-center p-6 space-y-6">
+                                {!isClaimed ? (
+                                  <div className="text-center space-y-4 w-full">
+                                    <div className="p-4 bg-muted rounded-2xl border border-border/50">
+                                      <p className="text-sm text-muted-foreground font-medium">
+                                        Confirming this will deduct <span className="text-foreground font-bold">{reward.pointCost.toLocaleString()} points</span> from your balance.
+                                      </p>
+                                    </div>
+                                    <Button
+                                      onClick={() => handleClaim(reward)}
+                                      className="w-full py-8 text-lg font-black rounded-2xl transition-all uppercase tracking-widest"
+                                    >
+                                      Confirm &amp; Deduct
+                                    </Button>
+                                  </div>
+                                ) : (
+                                  <motion.div
+                                    initial={{ opacity: 0, scale: 0.9 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    className="flex flex-col items-center w-full space-y-6"
+                                  >
+                                    <div className="relative">
+                                      <div className="bg-white p-5 rounded-2xl border border-border/50">
+                                        <QRCodeSVG
+                                          value={`Treco:Redeem:${reward._id}:${user?._id}:${code}`}
+                                          size={180}
+                                          bgColor="#ffffff"
+                                          fgColor="#000000"
+                                          level="H"
+                                        />
+                                      </div>
+                                    </div>
+
+                                    <div className="w-full">
+                                      <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1 text-center">Redemption Code</div>
+                                      <div className="flex items-center gap-2">
+                                        <div className="flex-1 text-xl font-black font-mono tracking-[0.1em] bg-muted px-4 py-3 rounded-xl border border-border/50 text-center truncate">
+                                          {code}
+                                        </div>
+                                        <Button
+                                          variant="secondary"
+                                          size="icon"
+                                          className="h-12 w-12 rounded-xl shrink-0"
+                                          onClick={() => handleCopyCode(reward._id, code)}
+                                        >
+                                          {copiedId === reward._id ? <Check className="w-5 h-5 text-emerald-500" /> : <Copy className="w-5 h-5" />}
+                                        </Button>
+                                      </div>
+                                    </div>
+
+                                    <div className="flex items-center gap-2 text-emerald-500 bg-emerald-500/10 px-6 py-3 rounded-2xl font-black text-sm w-full justify-center">
+                                      <CheckCircle2 className="w-5 h-5" />
+                                      <span>Redeemed Successfully!</span>
+                                    </div>
+                                  </motion.div>
+                                )}
+                              </div>
+                            </DialogContent>
+                          </Dialog>
+                        </CardFooter>
+                      </Card>
+                    </motion.div>
+                  );
+                })
+              ) : (
+                <div className="col-span-full py-20 text-center">
+                  <div className="text-muted-foreground font-mono text-sm">No rewards available in this category yet.</div>
+                </div>
+              )}
             </motion.div>
-          );
-        })}
-      </div>
+          </TabsContent>
+        </AnimatePresence>
+      </Tabs>
     </div>
   );
 }

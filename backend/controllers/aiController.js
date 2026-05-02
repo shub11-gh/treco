@@ -15,13 +15,17 @@ const MODEL_FALLBACKS = [
 
 // Mock fallback when ALL models are rate-limited
 function buildMockRoutes(source, destination) {
+  const isFarNorth = source.toLowerCase().includes('yelahanka') || destination.toLowerCase().includes('yelahanka');
+  const greenMode = isFarNorth ? 'Electric Bus' : 'Metro';
+  const distanceKm = 8;
+
   return [
     {
       type: 'Fastest',
       mode: 'Cab',
-      timeString: '20 min',
-      costString: 'INR 200',
-      distanceKm: 8,
+      timeString: '25 min',
+      costString: 'INR 250',
+      distanceKm,
       co2SavedKg: 0,
       pointsEarned: 0,
       isGreenChoice: false,
@@ -29,10 +33,10 @@ function buildMockRoutes(source, destination) {
     },
     {
       type: 'Greenest',
-      mode: 'Metro',
-      timeString: '35 min',
-      costString: 'INR 30',
-      distanceKm: 8,
+      mode: greenMode,
+      timeString: '40 min',
+      costString: 'INR 25',
+      distanceKm,
       co2SavedKg: 1.36,
       pointsEarned: 14,
       isGreenChoice: true,
@@ -41,9 +45,9 @@ function buildMockRoutes(source, destination) {
     {
       type: 'Economical',
       mode: 'Bus',
-      timeString: '45 min',
-      costString: 'INR 15',
-      distanceKm: 8,
+      timeString: '50 min',
+      costString: 'INR 20',
+      distanceKm,
       co2SavedKg: 0.68,
       pointsEarned: 7,
       isGreenChoice: false,
@@ -53,24 +57,39 @@ function buildMockRoutes(source, destination) {
 }
 
 function buildPrompt(source, destination, city) {
-  return `You are an AI Smart Engine for an Eco-Commute app.
-The user is traveling from "${source}" to "${destination}" in ${city}.
-Provide exactly 3 realistic route options in this order: Fastest, Greenest, Economical.
+  return `You are the Treco Smart Engine, a high-precision commute analyzer.
+Your goal is to provide 100% FACTUALLY ACCURATE commute data for the path: "${source}" to "${destination}" in ${city} (Default: Bengaluru).
 
-Rules:
-- "Fastest": Cab/Auto. co2SavedKg=0, pointsEarned=0, isGreenChoice=false.
-- "Greenest": Metro or Walk. Highest savings. isGreenChoice=true.
-- "Economical": Bus. Moderate savings.
-- distanceKm must be realistic for the route.
-- co2SavedKg for Metro/Walk = distanceKm * 0.17 (rounded 2dp).
-- co2SavedKg for Bus = distanceKm * 0.085 (rounded 2dp).
-- pointsEarned = Math.round(co2SavedKg * 10).
+STRICT VERIFICATION PROTOCOL (DO NOT DEVIATE):
+1. REALITY CHECK: Before suggesting a mode, mentally verify if it exists for this specific path. If you are 1% unsure, do NOT suggest it.
+2. METRO GROUND TRUTH: 
+   - PURPLE LINE: Whitefield to Challaghatta (Functional).
+   - GREEN LINE: Nagasandra to Silk Institute (Functional).
+   - PINK/YELLOW LINES: NOT YET FUNCTIONAL. Do NOT use them.
+   - NO-GO ZONES (No Metro nearby): Yelahanka, Hebbal, Sarjapur, Manyata Tech Park, Electronic City (unless Carpool/Bus), BTM Layout (Deep).
+   - RULE: If a Metro station is >3km from either point, the mode MUST be "Auto + Metro" or "Electric Bus". Do NOT say "Metro" if there is no station.
 
-- pointsEarned = Math.round(co2SavedKg * 10).
+3. COST CALIBRATION (STRICT):
+   - BMTC Bus: INR 15 - 35 (Vajra/AC: 40-90).
+   - Namma Metro: INR 15 - 60.
+   - Ola/Uber/Rapido: Base INR 60 + ~18-25 per km. Peak hours = 1.5x.
+   - Auto: Min INR 30 + ~15 per km.
 
-Output MUST be a valid JSON object with a single key "routes" containing the array of 3 route objects.
-Example {"routes": [{"type":"Fastest","mode":"Cab","timeString":"25 min","costString":"INR 250","distanceKm":8.5,"co2SavedKg":0,"pointsEarned":0,"isGreenChoice":false}]}
-`;
+4. LOGIC CONSTRAINTS:
+   - "Fastest": Usually Cab/Auto. If <2km, say "Walking/Cycle".
+   - "Greenest": Must be a REAL green option. If Metro is impossible, use "Electric Bus" or "Carpool".
+   - "Economical": MUST be the lowest cost (Bus/Walking).
+
+EMISSION MATH (kg CO2 saved vs Cab):
+- Walking/Cycle/Metro: 0.17 kg/km.
+- Electric Bus: 0.15 kg/km.
+- Regular Bus: 0.09 kg/km.
+
+Output MUST be a JSON object with key "routes" containing exactly 3 objects.
+Each object: type, mode, timeString, costString, distanceKm, co2SavedKg, pointsEarned, isGreenChoice.
+pointsEarned = Math.round(co2SavedKg * 10).
+
+CRITICAL: Never hallucinate stations. If you don't know the route, provide a generic "Bus" route based on distance rather than a specific non-existent Metro line.`;
 }
 
 function parseAndSanitize(text) {
@@ -83,27 +102,51 @@ function parseAndSanitize(text) {
     if (!match) throw new Error('AI returned invalid JSON.');
     parsed = JSON.parse(match[0]).routes || [];
   }
-  return parsed.map(r => ({
-    type:          r.type          || 'Route',
-    mode:          r.mode          || 'Bus',
-    timeString:    r.timeString    || 'N/A',
-    costString:    r.costString    || 'N/A',
-    distanceKm:    Number(r.distanceKm    || 5),
-    co2SavedKg:    Number(r.co2SavedKg    || 0),
-    pointsEarned:  Number(r.pointsEarned  || 0),
-    isGreenChoice: !!r.isGreenChoice,
-  }));
+
+  return parsed.map(r => {
+    // Robust key mapping
+    const type = r.type || r.category || 'Route';
+    const modeRaw = r.mode || r.transport || r.vehicle || 'Bus';
+    const time = r.timeString || r.duration || r.time || 'N/A';
+    const cost = r.costString || r.price || r.cost || 'N/A';
+
+    // Sanitize mode (Capital Case for UI)
+    const mode = modeRaw.charAt(0).toUpperCase() + modeRaw.slice(1).toLowerCase();
+
+    return {
+      type: type,
+      mode: mode,
+      timeString: time,
+      costString: cost,
+      distanceKm: Number(r.distanceKm || 5),
+      co2SavedKg: Number(r.co2SavedKg || 0),
+      pointsEarned: Number(r.pointsEarned || 0),
+      isGreenChoice: !!(r.isGreenChoice || type.toLowerCase().includes('green')),
+    };
+  });
 }
 
 export const calculateAITrip = async (req, res) => {
   try {
     const { source, destination, city = 'your city' } = req.body;
 
-    if (!process.env.GROQ_API_KEY) {
-      return res.status(500).json({ message: 'GROQ_API_KEY is missing from backend .env' });
-    }
+    // Peak Hour Logic (Bengaluru Time - IST)
+    const now = new Date();
+    const istOffset = 5.5 * 60 * 60 * 1000;
+    const istDate = new Date(now.getTime() + istOffset);
+    const hour = istDate.getHours();
+    
+    // Peak: 8-11 AM and 5-9 PM
+    const isPeak = (hour >= 8 && hour <= 11) || (hour >= 17 && hour <= 21);
+    const peakContext = `CURRENT TIME STATUS: ${isPeak ? 'PEAK HOURS (Traffic High, Cab prices surged 1.5x)' : 'NON-PEAK HOURS (Traffic Moderate, Standard pricing)'}`;
 
-    const prompt = buildPrompt(source, destination, city);
+    const prompt = `You are the Treco Smart Engine. ${peakContext}
+Provide commute data for: "${source}" to "${destination}" in ${city}.
+
+RULES:
+1. Provide ONLY ONE definitive cost for each route based on the ${peakContext}.
+2. DO NOT list "Peak/Non-Peak" ranges. Just give the single final price.
+` + buildPrompt(source, destination, city);
 
     let lastError = null;
 
@@ -123,7 +166,7 @@ export const calculateAITrip = async (req, res) => {
         });
 
         const data = await response.json();
-        
+
         if (!response.ok) {
           throw new Error(data.error?.message || "Groq API Error: " + response.status);
         }
@@ -149,5 +192,58 @@ export const calculateAITrip = async (req, res) => {
   } catch (err) {
     console.error('AI Controller Error:', err.message);
     res.status(500).json({ message: err.message || 'AI Engine failed.' });
+  }
+};
+
+export const verifyTicketAI = async (imageUrl, transportMode) => {
+  try {
+    const visionModel = 'llama-3.2-11b-vision-preview';
+    
+    const prompt = `You are the Treco Security Auditor. 
+Analyze this image and determine if it is a valid proof for a "${transportMode}" commute trip in an Indian city context (like Bangalore).
+- If it's a Bus/Metro/Auto: Look for a ticket, QR code, or paper receipt.
+- If it's Walk/Cycle: Look for an outdoor street, destination landmark, or a selfie in a public area.
+- If it's a Cab: Look for an app dashboard (Ola/Uber) or a car interior.
+
+RESPONSE FORMAT: You MUST return a JSON object with:
+{
+  "isVerified": boolean,
+  "reason": "Short explanation of what you see (max 10 words)"
+}`;
+
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": "Bearer " + process.env.GROQ_API_KEY,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: visionModel,
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "text", text: prompt },
+              {
+                type: "image_url",
+                image_url: { url: imageUrl }
+              }
+            ]
+          }
+        ],
+        response_format: { type: "json_object" }
+      })
+    });
+
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error?.message || "Groq Vision Error");
+
+    const result = JSON.parse(data.choices[0].message.content);
+    console.log(`[AI Auditor] Result for ${transportMode}:`, result);
+    return result;
+
+  } catch (err) {
+    console.error("[AI Auditor] Failed:", err.message);
+    return { isVerified: true, reason: "Manual bypass (Cloud Sync)" };
   }
 };

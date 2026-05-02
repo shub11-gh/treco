@@ -8,9 +8,9 @@
 
 | Layer | Technology |
 |---|---|
-| **Frontend** | React 18, Vite, Tailwind CSS v4, Framer Motion, Recharts |
+| **Frontend** | React 19, Vite, Tailwind CSS v4, Framer Motion, Recharts |
 | **Backend** | Node.js, Express, MongoDB Atlas (Mongoose) |
-| **AI Engine** | Google Gemini API (`gemini-2.0-flash-lite` with fallback chain) |
+| **AI Engine** | Llama 3.1 & Mixtral (via **Groq API** with multi-model fallback) |
 | **Auth** | JWT (7-day expiry), bcryptjs |
 | **PWA** | Service Worker + Web App Manifest |
 
@@ -18,16 +18,15 @@
 
 ## Features
 
-- **Smart Commute Engine** — AI-powered route suggestions (Fastest / Greenest / Economical) with CO₂ and points calculation
-- **Carbon Points System** — Earn points for eco-friendly transport modes (Walk > Cycle > Metro > Bus > Cab)
-- **Campus Leaderboard** — Compete with fellow students from the same college
-- **Streak System** — Daily commute streaks with milestone celebrations (7/14/30/60/100 days)
-- **Streak Shield** — Spend 2,000 points to protect your streak from a missed day
-- **Rewards Vault** — Redeem points for real perks (coffee, pizza, bus passes, gadgets) via QR codes
-- **Activity History** — Timeline + 7-day CO₂ and points charts
-- **Eco Impact Card** — Shareable "Treco Wrapped"-style card with your stats
-- **PWA Support** — Installable on Android/iOS like a native app
-- **Dark / Light Mode** — Persistent theme toggle
+- **Smart Commute Engine** — AI-powered route suggestions (Fastest / Greenest / Economical) with CO₂ and points calculation.
+- **Dynamic Leveling System** — Progress through ranks from **Eco-Seedling** to **Forest Guardian** based on your cumulative impact.
+- **Achievement Vault** — Unlock sleek, themed badges (Metro Master, Streak Stalker, etc.) as you hit major milestones.
+- **Campus Analytics** — Real-time insights into your specific **contribution percentage** to your university's total green efforts.
+- **Carbon Points System** — Earn points for eco-friendly transport modes (Walk > Cycle > Metro > Bus > Cab).
+- **Campus Leaderboard** — Compete with fellow students from the same college.
+- **Streak System** — Daily commute streaks with milestone celebrations and **Streak Shield** protection.
+- **Rewards Vault** — Redeem points for real perks (coffee, pizza, bus passes, gadgets) via dynamic QR codes.
+- **Sleek, Minimalist UI** — A modern, professional design optimized for both **Dark and Light modes** with custom theme-aware components.
 
 ---
 
@@ -36,7 +35,7 @@
 ### Prerequisites
 - Node.js 18+
 - MongoDB Atlas account (free tier is fine)
-- Google AI Studio API key → [aistudio.google.com](https://aistudio.google.com/app/apikey)
+- Groq Cloud API key → [console.groq.com](https://console.groq.com)
 
 ### 1. Clone & Install
 
@@ -62,7 +61,7 @@ Required variables in `backend/.env`:
 
 ```env
 MONGO_URI="mongodb+srv://<user>:<password>@<cluster>.mongodb.net/<dbname>"
-GEMINI_API_KEY="AIzaSy..."
+GROQ_API_KEY="gsk_..."
 JWT_SECRET="a-long-random-secret-at-least-32-chars"
 PORT=5000
 ```
@@ -79,8 +78,6 @@ cd frontend && npm run dev
 
 Open [http://localhost:5173](http://localhost:5173)
 
-> **First run:** Register with a `.edu.in` college email. The Rewards Vault seeds automatically on first reward fetch.
-
 ---
 
 ## Project Structure
@@ -95,8 +92,8 @@ Treco/
 │   └── index.js           # Entry point
 └── frontend/
     └── src/
-        ├── components/    # ErrorBoundary, ImpactCard, OnboardingModal, Skeletons
-        ├── pages/         # Dashboard, SmartEngine, Leaderboard, RewardsVault, History, Profile, NotFound
+        ├── components/    # BadgeVault, ImpactCard, OnboardingModal, Skeletons, UI
+        ├── pages/         # Dashboard, SmartEngine, Leaderboard, RewardsVault, History, Profile
         ├── store/         # Zustand auth store
         ├── lib/           # Axios instance with interceptors
         └── App.jsx        # Router, theme, page titles
@@ -104,14 +101,16 @@ Treco/
 
 ---
 
-## API Endpoints
+## API Endpoints (v1)
 
 | Method | Route | Auth | Description |
 |---|---|---|---|
 | POST | `/api/v1/auth/register` | No | Register with college email |
 | POST | `/api/v1/auth/login` | No | Login |
 | GET | `/api/v1/auth/me` | Yes | Get current user |
+| GET | `/api/v1/auth/stats` | Yes | Get user statistics & campus totals |
 | PATCH | `/api/v1/auth/profile` | Yes | Update name / password |
+| DELETE | `/api/v1/auth/profile` | Yes | Permanently delete account |
 | POST | `/api/v1/auth/shield` | Yes | Activate Streak Shield |
 | POST | `/api/v1/commutes/ai-calculate` | Yes | AI route suggestions |
 | POST | `/api/v1/commutes/log` | Yes | Log a commute |
@@ -124,6 +123,11 @@ Treco/
 
 ## Environment Notes
 
-- Registration is restricted to `.edu.in` email domains (enforced on both frontend and backend)
-- The AI engine uses a 4-model fallback chain — if quota is exhausted it returns realistic demo routes
-- JWT tokens expire after 7 days; an axios interceptor auto-redirects to login on 401
+- **Campus Lock**: Registration is restricted to `.edu.in` email domains.
+- **AI Fallback**: Uses a 4-model chain; if quota is hit, it provides realistic demo routes.
+- **Persistence**: Theme selection and weekly goals are stored in `localStorage`.
+- **Security**: All destructive actions (deletion, password changes) require active JWT sessions.
+
+---
+
+

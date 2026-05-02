@@ -15,8 +15,7 @@ const useAuthStore = create((set) => ({
         return { success: true };
     } catch (err) {
         if (!err.response) return { success: false, error: 'Network Error: Is the backend server running on port 5000?' };
-        const errors = err.response?.data?.errors;
-        const msg = errors ? JSON.stringify(errors) : (err.response?.data?.message || 'Login failed');
+        const msg = err.response?.data?.message || 'Login failed';
         return { success: false, error: msg };
     }
   },
@@ -29,8 +28,7 @@ const useAuthStore = create((set) => ({
         return { success: true };
     } catch (err) {
         if (!err.response) return { success: false, error: 'Network Error: Is the backend server running on port 5000?' };
-        const errors = err.response?.data?.errors;
-        const msg = errors ? JSON.stringify(errors) : (err.response?.data?.message || 'Registration failed');
+        const msg = err.response?.data?.message || 'Registration failed';
         return { success: false, error: msg };
     }
   },
@@ -52,6 +50,19 @@ const useAuthStore = create((set) => ({
     } catch (err) {
       localStorage.removeItem('token');
       set({ user: null, token: null, isAuthenticated: false, isLoading: false });
+    }
+  },
+
+  deleteAccount: async () => {
+    try {
+      await api.delete('/auth/profile');
+      // On success, simply logout
+      localStorage.removeItem('token');
+      set({ user: null, token: null, isAuthenticated: false });
+      return { success: true };
+    } catch (err) {
+      const msg = err.response?.data?.message || 'Failed to delete account';
+      return { success: false, error: msg };
     }
   }
 }));

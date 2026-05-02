@@ -12,6 +12,7 @@ import HistoryPage from './pages/History';
 import ProfilePage from './pages/Profile';
 import NotFound from './pages/NotFound';
 import Auth from './pages/Auth';
+import Landing from './pages/Landing';
 import OnboardingModal from './components/OnboardingModal';
 import ErrorBoundary from './components/ErrorBoundary';
 import ImpactCard from './components/ImpactCard';
@@ -51,7 +52,7 @@ function useDarkMode() {
 }
 
 // ── Header ──────────────────────────────────────────────────────────────────
-function Header({ dark, setDark, onShowImpact }) {
+function Header({ dark, setDark, onShowImpact, setAuthMode }) {
   const { logout } = useAuthStore();
   const location = useLocation();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
@@ -61,8 +62,8 @@ function Header({ dark, setDark, onShowImpact }) {
   const navLinks = [
     { to: '/', icon: Leaf, label: 'Dashboard', accent: false },
     { to: '/engine', icon: RouteIcon, label: 'Engine', accent: true },
-    { to: '/leaderboard', icon: Trophy, label: 'Ranks', accent: false },
-    { to: '/rewards', icon: Gift, label: 'Vault', accent: false },
+    { to: '/leaderboard', icon: Trophy, label: 'Leaderboard', accent: false },
+    { to: '/rewards', icon: Gift, label: 'Rewards', accent: false },
     { to: '/history', icon: History, label: 'History', accent: false },
   ];
 
@@ -72,7 +73,7 @@ function Header({ dark, setDark, onShowImpact }) {
         {/* Logo */}
         <Link to="/" className="flex items-center gap-2" style={{ width: "200px" }}>
           <img
-            src="/logo.png"
+            src="/trecoLogo.png"
             alt="Treco Logo"
             className="h-15 w-auto object-contain"
             onError={(e) => {
@@ -80,7 +81,7 @@ function Header({ dark, setDark, onShowImpact }) {
               e.currentTarget.nextSibling.style.display = 'flex';
             }}
           />
-          <span className="flex items-center gap-2 font-black text-2xl md:text-3xl text-primary tracking-tight">
+          <span className="flex items-center gap-2 font-black text-2xl md:text-3xl text-[#138851ff] tracking-tight">
             Treco
           </span>
         </Link>
@@ -93,14 +94,14 @@ function Header({ dark, setDark, onShowImpact }) {
               to={to}
               className={`transition-all flex items-center gap-1.5 ${isActive(to)
                 ? accent
-                  ? 'text-accent font-bold drop-shadow-[0_0_10px_rgba(59,130,246,0.3)]'
-                  : 'text-primary font-bold drop-shadow-[0_0_10px_rgba(16,185,129,0.3)]'
+                  ? 'text-accent font-bold'
+                  : 'text-[#138851ff] font-bold'
                 : accent
                   ? 'text-muted-foreground hover:text-accent'
-                  : 'text-muted-foreground hover:text-primary'
+                  : 'text-muted-foreground hover:text-[#138851ff]'
                 }`}
             >
-              <Icon className="w-5 h-5" /> {label}
+              <Icon className="w-5.5 h-5.5" /> {label}
             </Link>
           ))}
         </nav>
@@ -110,10 +111,10 @@ function Header({ dark, setDark, onShowImpact }) {
           {/* Dark mode toggle */}
           <button
             onClick={() => setDark(d => !d)}
-            className="text-muted-foreground hover:text-foreground transition-colors p-2 rounded-lg hover:bg-muted"
+            className="text-muted-foreground hover:text-[#138851ff] transition-colors p-2 rounded-lg hover:bg-muted"
             title={dark ? 'Switch to light mode' : 'Switch to dark mode'}
           >
-            {dark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+            {dark ? <Sun className="w-5.5 h-5.5" /> : <Moon className="w-5.5 h-5.5" />}
           </button>
 
           {/* Share eco impact */}
@@ -122,21 +123,21 @@ function Header({ dark, setDark, onShowImpact }) {
             className="text-muted-foreground hover:text-primary transition-colors p-2 rounded-lg hover:bg-muted"
             title="My Eco Impact Card"
           >
-            <Sparkles className="w-5 h-5" />
+            <Sparkles className="w-5.5 h-5.5" />
           </button>
 
           {/* Profile link */}
           <Link
             to="/profile"
-            className={`p-2 rounded-lg hover:bg-muted transition-colors ${isActive('/profile') ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+            className={`p-2 rounded-lg hover:bg-muted transition-colors ${isActive('/profile') ? 'text-primary' : 'text-muted-foreground hover:text-[#138851ff]'}`}
             title="My Profile"
           >
-            <UserCircle className="w-5 h-5" />
+            <UserCircle className="w-5.5 h-5.5" />
           </Link>
 
           {/* Logout Trigger */}
           <button onClick={() => setShowLogoutConfirm(true)} className="text-muted-foreground hover:text-red-400 transition-colors p-2 flex items-center gap-1.5 text-base font-medium rounded-lg hover:bg-muted" title="Logout">
-            <LogOut className="w-5 h-5" />
+            <LogOut className="w-5.5 h-5.5" />
           </button>
         </div>
       </div>
@@ -191,7 +192,14 @@ function Header({ dark, setDark, onShowImpact }) {
                     Cancel
                   </button>
                   <button
-                    onClick={() => { logout(); setShowLogoutConfirm(false); }}
+                    onClick={() => {
+                      logout();
+                      setAuthMode(null);
+                      setShowLogoutConfirm(false);
+                      if (window.location.pathname !== '/') {
+                        window.location.href = '/';
+                      }
+                    }}
                     className="flex-1 py-3 px-4 rounded-xl bg-red-500 text-white font-bold hover:bg-red-600 transition-colors shadow-lg shadow-red-500/20"
                   >
                     Logout
@@ -214,33 +222,33 @@ function AuthHeader({ dark, setDark, authMode, setAuthMode }) {
       <div className="container flex h-20 items-center px-4 md:px-8 mx-auto justify-between relative">
         {/* Logo */}
         <div className="flex items-center gap-3 relative z-10 w-[200px]">
-          <img src="/logo.png" alt="Treco Logo" className="h-10 md:h-12 w-auto object-contain" />
-          <span className="flex items-center gap-2 font-black text-2xl md:text-3xl text-primary tracking-tight">
+          <img src="/trecoLogo.png" alt="Treco Logo" className="h-10 md:h-12 w-auto object-contain" />
+          <span className="flex items-center gap-2 font-black text-2xl md:text-3xl text-[#138851ff] tracking-tight">
             Treco
           </span>
         </div>
 
         {/* Middle Navigation (Hidden on small screens) */}
-        <nav className="hidden xl:flex absolute left-1/2 -translate-x-1/2 items-center gap-8 text-lg font-bold text-muted-foreground whitespace-nowrap">
-          <a href="#" className="hover:text-foreground transition-colors">Features</a>
-          <a href="#" className="hover:text-foreground transition-colors">Campuses</a>
-          <a href="#" className="hover:text-foreground transition-colors">Mission</a>
-          <a href="#" className="flex items-center gap-1.5 hover:text-foreground transition-colors">Global Leaderboard</a>
+        <nav className="hidden xl:flex absolute left-1/2 -translate-x-1/2 items-center gap-8 text-lg text-muted-foreground whitespace-nowrap">
+          <a href="#features" className="hover:text-accent transition-colors">Features</a>
+          <a href="#campuses" className="hover:text-accent transition-colors">Campuses</a>
+          <a href="#mission" className="hover:text-accent transition-colors">Mission</a>
+          <a href="#leaderboard" className="flex items-center gap-1.5 hover:text-accent transition-colors">Global Leaderboard</a>
         </nav>
 
         {/* Right actions */}
         <div className="flex items-center justify-end gap-3 md:gap-4 relative z-10 w-[200px]">
-          <div className="hidden sm:flex items-center gap-2 bg-muted/40 p-1 rounded-xl border border-border/50">
+          <div className="hidden sm:flex items-center gap-2 bg-muted/40 p-1 rounded-lg border border-border/50">
             <button
               onClick={() => setAuthMode('login')}
-              className={`px-2 py-2 rounded-lg text-sm font-bold transition-all ${authMode === 'login' ? 'bg-primary shadow-lg shadow-primary/20 text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+              className={`px-2 py-2 rounded-md text-sm font-bold transition-all ${authMode === 'login' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-primary/70 hover:text-primary-foreground hover:shadow-md'
                 }`}
             >
               Log In
             </button>
             <button
               onClick={() => setAuthMode('signup')}
-              className={`px-2 py-2 rounded-lg text-sm font-bold transition-all ${authMode === 'signup' ? 'bg-primary shadow-lg shadow-primary/20 text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+              className={`px-2 py-2 rounded-md text-sm font-bold transition-all ${authMode === 'signup' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-primary/70 hover:text-primary-foreground hover:shadow-md'
                 }`}
             >
               Sign Up
@@ -259,7 +267,6 @@ function AuthHeader({ dark, setDark, authMode, setAuthMode }) {
     </header>
   );
 }
-
 // ── Animated Routes ──────────────────────────────────────────────────────────
 function AnimatedRoutes() {
   const location = useLocation();
@@ -294,7 +301,7 @@ export default function App() {
   const [dark, setDark] = useDarkMode();
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showImpact, setShowImpact] = useState(false);
-  const [authMode, setAuthMode] = useState('login');
+  const [authMode, setAuthMode] = useState(null);
 
   useEffect(() => {
     checkAuth();
@@ -323,17 +330,23 @@ export default function App() {
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-[100dvh] bg-background text-foreground flex flex-col selection:bg-primary/30 relative overflow-hidden">
+      <div className="min-h-screen bg-background text-foreground flex flex-col selection:bg-primary/30 relative overflow-x-hidden">
         {/* Ambient background glows & Particles */}
-        <div className="absolute top-0 left-0 w-full lg:w-[800px] h-[500px] bg-gradient-to-b from-primary/10 to-transparent blur-[120px] pointer-events-none z-0" />
-        <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-accent/5 blur-[150px] rounded-full pointer-events-none z-0" />
-        <EcoParticles />
+        <div className="fixed top-0 left-0 w-full lg:w-[800px] h-[500px] bg-gradient-to-b from-primary/10 to-transparent blur-[120px] pointer-events-none z-0" />
+        <div className="fixed bottom-0 right-0 w-[500px] h-[500px] bg-accent/5 blur-[150px] rounded-full pointer-events-none z-0" />
+        <div className="fixed inset-0 z-0 pointer-events-none">
+          <EcoParticles />
+        </div>
 
         <AuthHeader dark={dark} setDark={setDark} authMode={authMode} setAuthMode={setAuthMode} />
 
-        <div className="flex-1 w-full flex items-center justify-center p-4 py-2 md:py-4 md:px-8 z-10 relative">
-          <Auth authMode={authMode} setAuthMode={setAuthMode} />
-        </div>
+        <main className="flex-1 w-full flex flex-col items-center justify-start z-10 relative">
+          <Landing setAuthMode={setAuthMode} />
+        </main>
+
+        {/* Portal-mounted Auth Modal */}
+        <Auth authMode={authMode} setAuthMode={setAuthMode} />
+
         <Toaster
           position="bottom-right"
           toastOptions={{
@@ -357,7 +370,7 @@ export default function App() {
       {!dark && <TopographicBackground />}
       {showOnboarding && <OnboardingModal onComplete={handleOnboardingComplete} />}
       {showImpact && <ImpactCard user={user} onClose={() => setShowImpact(false)} />}
-      <Header dark={dark} setDark={setDark} onShowImpact={() => setShowImpact(true)} />
+      <Header dark={dark} setDark={setDark} onShowImpact={() => setShowImpact(true)} setAuthMode={setAuthMode} />
       <main className="flex-1 flex flex-col items-center p-4 md:px-8 md:py-10 w-full z-10">
         <AnimatedRoutes />
       </main>

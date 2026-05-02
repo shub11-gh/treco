@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
-import { motion, useMotionValue, useTransform, animate } from 'framer-motion';
-import { Flame, Trees, Zap, Target, Pencil, Check, PartyPopper, CloudSun, Sun, Sunset, Moon, MapPin, Navigation, History, Trophy, TrendingUp } from 'lucide-react';
+import { motion, useMotionValue, useTransform, animate, AnimatePresence } from 'framer-motion';
+import { Flame, Trees, Zap, Target, Pencil, Check, PartyPopper, CloudSun, Sun, Sunset, Moon, MapPin, Navigation, History, Trophy, TrendingUp, ShieldCheck, Eye } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import useAuthStore from '../store/useAuthStore';
 import api from '../lib/api';
@@ -21,9 +21,31 @@ function AnimatedNumber({ value, decimals = 0 }) {
   return <motion.span>{rounded}</motion.span>;
 }
 
+// Sub-component for individual trees in the forest
+const Tree = ({ height, width, color, delay, offset = 0, zIndex = 10 }) => (
+  <div
+    className="absolute bottom-0 flex flex-col items-center origin-bottom"
+    style={{ left: `calc(50% + ${offset}px)`, zIndex }}
+  >
+    <motion.div
+      initial={{ scaleY: 0 }}
+      animate={{ scaleY: 1 }}
+      transition={{ delay, type: "spring", stiffness: 100 }}
+      className="w-1.5 rounded-t-full bg-amber-900/40"
+      style={{ height: height * 0.4 }}
+    />
+    <motion.div
+      initial={{ scale: 0 }}
+      animate={{ scale: 1 }}
+      transition={{ delay: delay + 0.2, type: "spring", damping: 12 }}
+      className={`absolute bottom-full rounded-full border border-white/5 shadow-inner ${color}`}
+      style={{ width, height: width, marginBottom: -height * 0.1 }}
+    />
+  </div>
+);
+
 // Visual Ecosystem Graphic
 function ForestGraphic({ co2 }) {
-  // Determine level based on kg
   let level = 1;
   let label = "Tiny Seedling";
   if (co2 >= 20) { level = 2; label = "Growing Sapling"; }
@@ -31,79 +53,89 @@ function ForestGraphic({ co2 }) {
   if (co2 >= 400) { level = 4; label = "Thriving Forest"; }
 
   return (
-    <div className="flex flex-col items-center justify-center gap-2">
-      <div className="h-40 flex flex-col justify-end relative">
-        {level === 1 && (
-          <div className="relative w-32 h-32 flex flex-col justify-end items-center mb-4">
-            <motion.div initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} className="absolute bottom-0 w-16 h-2 bg-amber-900/10 dark:bg-amber-100/10 rounded-full" />
-            <motion.div initial={{ scaleY: 0 }} animate={{ scaleY: 1 }} className="absolute bottom-1 w-1.5 h-10 bg-amber-700/80 rounded-full origin-bottom" />
-            <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.3, type: "spring" }} className="absolute bottom-10 w-8 h-8 bg-primary rounded-tr-full rounded-bl-full rounded-tl-[4px] rounded-br-[4px] rotate-45 shadow-[0_0_20px_rgba(16,185,129,0.4)]" />
-          </div>
-        )}
+    <div className="w-full flex flex-col items-center gap-3 py-2">
+      <div className="relative w-full max-w-[280px] h-40 flex items-end justify-center overflow-visible px-10">
+        {/* Ground/Dirt Base */}
+        <motion.div
+          initial={{ scaleX: 0 }}
+          animate={{ scaleX: 1 }}
+          className="absolute bottom-0 w-full h-1.5 bg-foreground/5 rounded-full"
+        />
 
-        {level === 2 && (
-          <div className="relative w-40 h-40 flex flex-col justify-end items-center mb-4">
-            <motion.div initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} className="absolute bottom-0 w-24 h-2 bg-amber-900/10 dark:bg-amber-100/10 rounded-full" />
-            <motion.div initial={{ scaleY: 0 }} animate={{ scaleY: 1 }} className="absolute bottom-1 w-3 h-16 bg-amber-800 rounded-full origin-bottom" />
-            <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.3, type: "spring" }} className="absolute bottom-10 w-20 h-20 bg-primary rounded-full shadow-[0_0_25px_rgba(16,185,129,0.5)]" />
-          </div>
-        )}
+        <AnimatePresence mode="wait">
+          {level === 1 && (
+            <motion.div key="l1" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="relative w-full h-full">
+              <Tree height={40} width={32} color="bg-primary/80" delay={0.1} />
+            </motion.div>
+          )}
 
-        {level === 3 && (
-          <div className="relative w-48 h-48 flex flex-col justify-end items-center mb-2">
-            <motion.div initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} className="absolute bottom-0 w-32 h-2.5 bg-amber-900/10 dark:bg-amber-100/10 rounded-full" />
-            <motion.div initial={{ scaleY: 0 }} animate={{ scaleY: 1 }} className="absolute bottom-1 w-5 h-24 bg-amber-800 rounded-t-sm rounded-b-md origin-bottom" />
-            <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.3, type: "spring" }} className="absolute bottom-16 w-28 h-28 bg-primary rounded-full shadow-[0_0_35px_rgba(16,185,129,0.6)]" />
-            <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.4, type: "spring" }} className="absolute bottom-24 left-8 w-14 h-14 bg-emerald-400 rounded-full" />
-            <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.5, type: "spring" }} className="absolute bottom-20 right-8 w-16 h-16 bg-emerald-600 rounded-full" />
+          {level === 2 && (
+            <motion.div key="l2" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="relative w-full h-full">
+              <Tree height={80} width={64} color="bg-primary" delay={0.1} />
+            </motion.div>
+          )}
 
-            {/* Flowers blooming */}
-            <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.7, type: "spring", stiffness: 300 }} className="absolute bottom-32 left-[40%] w-3.5 h-3.5 bg-rose-400 rounded-[4px] rotate-12 shadow-[0_0_10px_rgba(251,113,133,0.8)] z-20" />
-            <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.8, type: "spring", stiffness: 300 }} className="absolute bottom-24 left-[25%] w-3 h-3 bg-pink-400 rounded-[3px] -rotate-12 shadow-[0_0_8px_rgba(244,114,182,0.8)] z-20" />
-            <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.85, type: "spring", stiffness: 300 }} className="absolute bottom-28 right-[30%] w-4 h-4 bg-yellow-400 rounded-full shadow-[0_0_10px_rgba(250,204,21,0.8)] z-20" />
-          </div>
-        )}
+          {level === 3 && (
+            <motion.div key="l3" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="relative w-full h-full">
+              <Tree height={60} width={50} color="bg-emerald-600/60" delay={0.1} offset={-40} zIndex={5} />
+              <Tree height={100} width={80} color="bg-primary" delay={0.2} offset={0} zIndex={10} />
+              <Tree height={70} width={55} color="bg-emerald-400/70" delay={0.3} offset={45} zIndex={5} />
+            </motion.div>
+          )}
 
-        {level === 4 && (
-          <div className="relative w-64 h-48 flex flex-col justify-end items-center mb-2">
-            <motion.div initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} className="absolute bottom-0 w-48 h-3 bg-amber-900/10 dark:bg-amber-100/10 rounded-full" />
+          {level === 4 && (
+            <motion.div key="l4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="relative w-full h-full scale-110 md:scale-125 origin-bottom">
+              {/* Back Row */}
+              <Tree height={60} width={45} color="bg-emerald-700/40" delay={0.1} offset={-70} zIndex={1} />
+              <Tree height={75} width={55} color="bg-emerald-800/50" delay={0.2} offset={75} zIndex={1} />
 
-            {/* Left */}
-            <motion.div initial={{ scaleY: 0 }} animate={{ scaleY: 1 }} className="absolute bottom-1 left-12 w-3 h-16 bg-amber-800/80 rounded-full origin-bottom" />
-            <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.2, type: "spring" }} className="absolute bottom-12 left-6 w-14 h-14 bg-emerald-600 rounded-full" />
+              {/* Mid Row */}
+              <Tree height={90} width={70} color="bg-emerald-600/70" delay={0.3} offset={-40} zIndex={5} />
+              <Tree height={85} width={65} color="bg-emerald-500/80" delay={0.4} offset={45} zIndex={5} />
 
-            {/* Right */}
-            <motion.div initial={{ scaleY: 0 }} animate={{ scaleY: 1 }} className="absolute bottom-1 right-14 w-3.5 h-20 bg-amber-800/90 rounded-full origin-bottom" />
-            <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.3, type: "spring" }} className="absolute bottom-16 right-6 w-16 h-16 bg-emerald-400 rounded-full" />
+              {/* Front Hero Tree */}
+              <Tree height={120} width={90} color="bg-primary" delay={0.5} offset={0} zIndex={10} />
 
-            {/* Center Big */}
-            <motion.div initial={{ scaleY: 0 }} animate={{ scaleY: 1 }} className="absolute bottom-1 w-6 h-28 bg-amber-800 rounded-t-sm rounded-b-md origin-bottom z-10" />
-            <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.4, type: "spring" }} className="absolute bottom-20 w-32 h-32 bg-primary rounded-full shadow-[0_0_40px_rgba(16,185,129,0.7)] z-10" />
-            <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.5, type: "spring" }} className="absolute bottom-32 left-16 w-16 h-16 bg-emerald-400 rounded-full z-10" />
-            <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.6, type: "spring" }} className="absolute bottom-24 right-16 w-16 h-16 bg-emerald-600 rounded-full z-10" />
-
-            {/* Spring Flowers Sequence */}
-            <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.75, type: "spring" }} className="absolute bottom-[110px] left-[35%] w-4 h-4 bg-rose-400 rounded-[4px] rotate-45 shadow-[0_0_12px_rgba(251,113,133,0.9)] z-20" />
-            <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.85, type: "spring" }} className="absolute bottom-[90px] right-[30%] w-3.5 h-3.5 bg-yellow-400 rounded-full shadow-[0_0_12px_rgba(250,204,21,0.9)] z-20" />
-            <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.95, type: "spring" }} className="absolute bottom-[140px] left-[45%] w-3 h-3 bg-pink-400 rounded-sm -rotate-12 shadow-[0_0_10px_rgba(244,114,182,0.9)] z-20" />
-            <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 1.05, type: "spring" }} className="absolute bottom-[115px] right-[40%] w-2.5 h-2.5 bg-purple-400 rounded-full z-20" />
-
-            <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 1.15, type: "spring" }} className="absolute bottom-[80px] left-[20%] w-3 h-3 bg-indigo-300 rounded-[3px] shadow-[0_0_8px_rgba(165,180,252,0.8)] z-20" />
-            <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 1.25, type: "spring" }} className="absolute bottom-[75px] right-[15%] w-3.5 h-3.5 bg-rose-300 rounded-[3px] shadow-[0_0_8px_rgba(253,164,175,0.8)] z-20" />
-          </div>
-        )}
+              {/* Dynamic Flowers (only for Level 4) */}
+              {[...Array(6)].map((_, i) => (
+                <motion.div
+                  key={i}
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ delay: 0.8 + i * 0.1, type: "spring" }}
+                  className={`absolute w-2 h-2 rounded-full z-20 ${['bg-rose-400', 'bg-yellow-400', 'bg-sky-400', 'bg-pink-400'][i % 4]}`}
+                  style={{
+                    bottom: 80 + Math.sin(i * 45) * 40,
+                    left: `calc(50% + ${Math.cos(i * 45) * 50}px)`
+                  }}
+                />
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
-      <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-primary/10 text-primary border border-primary/20 rounded-full text-xs font-bold uppercase tracking-widest">
-        <span>Level {level}</span>
-        <span className="w-1 h-1 rounded-full bg-primary" />
+
+      <motion.div
+        layout
+        className="inline-flex items-center gap-2 px-4 py-1.5 bg-primary/10 text-primary border border-primary/20 rounded-xl text-xs font-black uppercase tracking-[0.15em] shadow-sm"
+      >
+        <span className="opacity-60">Level {level}</span>
+        <span className="w-1 h-1 rounded-full bg-primary/40" />
         <span>{label}</span>
-      </div>
+      </motion.div>
     </div>
   );
 }
 
 export default function Dashboard() {
-  const { user } = useAuthStore();
+  const { user, checkAuth } = useAuthStore();
+  
+  const getFullUrl = (url) => {
+    if (!url) return null;
+    if (url.startsWith('http')) return url;
+    return `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}${url}`;
+  };
+
   const [recentCommutes, setRecentCommutes] = useState([]);
   const [userRank, setUserRank] = useState(null);
 
@@ -246,19 +278,19 @@ export default function Dashboard() {
           transition={{ delay: 0.1 }}
           className="h-full flex flex-col"
         >
-          <Card className="h-full flex-1 border-primary/20 bg-card overflow-hidden relative shadow-[0_0_40px_rgba(16,185,129,0.05)]">
+          <Card className="h-full flex-1 border-primary/20 bg-card overflow-hidden relative hover:border-primary/40 transition-all duration-300">
             <div className="absolute top-0 right-0 p-32 bg-primary/10 blur-[100px] rounded-full pointer-events-none" />
-            <CardHeader className="pt-5 pb-0">
+            <CardHeader className="pt-4 pb-0">
               <CardTitle className="flex items-center gap-2">
-                <Trees className="text-primary w-5 h-5" /> Forest Impact
+                <Trees className="text-primary w-7 h-7" /> Forest Impact
               </CardTitle>
             </CardHeader>
-            <CardContent className="flex flex-col items-center justify-center pt-2 pb-4">
+            <CardContent className="flex flex-col items-center justify-center pt-0 pb-3">
               <ForestGraphic co2={currentCO2} />
 
-              <div className="flex flex-col gap-1 z-10 text-center mt-2">
-                <h3 className="text-2xl md:text-3xl font-bold flex items-center justify-center gap-2">
-                  <AnimatedNumber value={currentCO2} /> <span className="text-xl">kg CO₂ Saved</span>
+              <div className="flex flex-col gap-0.5 z-10 text-center mt-1">
+                <h3 className="text-xl md:text-2xl font-bold flex items-center justify-center gap-2">
+                  <AnimatedNumber value={currentCO2} /> <span className="text-lg">kg CO₂ Saved</span>
                 </h3>
                 <p className="text-sm font-medium text-muted-foreground max-w-[280px] mx-auto">
                   That's roughly equivalent to planting <strong className="text-foreground">{Math.max(1, Math.floor(currentCO2 / 20))}</strong> mature trees!
@@ -276,11 +308,11 @@ export default function Dashboard() {
           className="h-full flex flex-col"
         >
           <Card className="h-full flex-1 border-border relative overflow-hidden group hover:border-accent/40 transition-colors">
-            <div className="absolute top-0 -translate-x-1/2 left-1/2 w-64 h-64 bg-accent/5 blur-[100px] rounded-full pointer-events-none transition-all duration-700 group-hover:bg-accent/10" />
-            <CardHeader className="pt-5 pb-0">
+            <div className="absolute top-0 -translate-x-1/2 left-1/2 w-64 h-64 bg-accent/5 blur-[80px] rounded-full pointer-events-none transition-all duration-700 group-hover:bg-accent/8" />
+            <CardHeader className="pt-4 pb-0">
               <CardTitle className="flex flex-row items-center justify-between w-full">
-                <span className="flex items-center gap-2">
-                  <Target className={goalPct >= 100 ? "text-primary w-5 h-5" : "text-accent w-5 h-5"} /> Weekly Activity
+                <span className="flex items-center gap-2 text-lg">
+                  <Target className={goalPct >= 100 ? "text-primary w-7 h-7" : "text-accent w-6 h-6"} /> Weekly Activity
                 </span>
                 {!editingGoal ? (
                   <button
@@ -306,10 +338,10 @@ export default function Dashboard() {
                 )}
               </CardTitle>
             </CardHeader>
-            <CardContent className="flex flex-col md:flex-row items-center justify-center h-full gap-6 md:gap-8 p-4 md:p-6 pt-0 md:pt-0">
+            <CardContent className="flex flex-col items-center justify-start h-full gap-2 p-2 pt-0">
               {/* Activity Ring */}
               <div className="relative flex items-center justify-center shrink-0">
-                <svg viewBox="0 0 176 176" className="transform -rotate-90 w-36 h-36 drop-shadow-xl z-10 overflow-visible">
+                <svg viewBox="0 0 176 176" className="transform -rotate-90 w-36 h-36 drop-shadow-xl z-10 ">
                   <circle cx="88" cy="88" r="70" stroke="currentColor" strokeWidth="18" fill="transparent" className="text-muted/30" />
                   <motion.circle
                     cx="88" cy="88" r="70"
@@ -318,24 +350,23 @@ export default function Dashboard() {
                     initial={{ strokeDashoffset: 439.82 }}
                     animate={{ strokeDashoffset: 439.82 - (goalPct / 100) * 439.82 }}
                     transition={{ duration: 1.5, ease: 'easeOut', delay: 0.3 }}
-                    className={goalPct >= 100 ? "text-primary" : "text-accent"}
+                    className={goalPct >= 100 ? "text-green-400" : "text-accent"}
                     strokeLinecap="round"
-                    style={{ filter: `drop-shadow(0 0 10px ${goalPct >= 100 ? 'rgba(16,185,129,0.5)' : 'rgba(14,165,233,0.5)'})` }}
                   />
                 </svg>
-                <div className="absolute flex flex-col items-center justify-center pointer-events-none z-20 mt-1">
-                  <span className="text-3xl font-black text-foreground">
+                <div className="absolute flex flex-col items-center justify-center pointer-events-none z-20 mt-2">
+                  <span className="text-2xl font-black text-foreground leading-none">
                     <AnimatedNumber value={goalPct} />%
                   </span>
-                  <span className="text-xs text-muted-foreground uppercase font-bold tracking-widest mt-0.5">Goal</span>
+                  <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest mt-1">Goal</span>
                 </div>
               </div>
 
-              {/* Data Right */}
-              <div className="flex-1 flex flex-col items-center md:items-start text-center md:text-left gap-4 w-full z-10 mt-4 md:mt-0">
-                <div className="space-y-1">
-                  <div className="text-4xl font-black font-mono tracking-tight">
-                    <AnimatedNumber value={Math.min(weeklyPoints, weeklyGoal)} /> <span className="text-muted-foreground text-2xl font-semibold">/ {weeklyGoal.toLocaleString()}</span>
+              {/* Data Center */}
+              <div className="flex flex-col items-center text-center gap-3 w-full z-10">
+                <div className="space-y-0.5">
+                  <div className="text-3xl font-black font-mono tracking-tight">
+                    <AnimatedNumber value={Math.min(weeklyPoints, weeklyGoal)} /> <span className="text-muted-foreground text-xl font-semibold">/ {weeklyGoal.toLocaleString()}</span>
                   </div>
                   <p className="text-sm font-medium text-muted-foreground">
                     Points earned towards your customized weekly threshold.
@@ -343,12 +374,12 @@ export default function Dashboard() {
                 </div>
                 <div className="mt-2 text-sm font-semibold">
                   {goalPct >= 100 ? (
-                    <span className="inline-flex items-center gap-1.5 bg-primary/10 border border-primary/20 text-primary px-3 py-2 rounded-xl shadow-sm">
+                    <span className="inline-flex items-center gap-1.5 bg-accent/10 border border-accent/20 text-accent px-3 py-2 rounded-xl shadow-sm">
                       <PartyPopper className="w-4 h-4" /> Weekly goal crushed!
                     </span>
                   ) : (
                     <span className="inline-flex items-center gap-1.5 bg-accent/10 border border-accent/20 text-accent px-3 py-2 rounded-xl shadow-sm">
-                      <Zap className="w-4 h-4" /> {Math.round(weeklyGoal - Math.min(weeklyPoints, weeklyGoal)).toLocaleString()} points remaining.
+                      <Zap className="w-4 h-4" /> {Math.round(weeklyGoal - Math.min(weeklyPoints, weeklyGoal)).toLocaleString()} points remaining
                     </span>
                   )}
                 </div>
@@ -364,7 +395,7 @@ export default function Dashboard() {
         {/* Column 1: Quick Stats (Stacked vertically) */}
         <div className="flex flex-col gap-6">
           <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.3 }} className="h-full">
-            <Card className="border-border h-full hover:border-accent transition-colors flex items-center p-6 gap-6 relative overflow-hidden">
+            <Card className="border-border h-full hover:border-accent/40 transition-colors flex items-center p-6 gap-6 relative overflow-hidden">
               <div className="absolute right-0 top-0 w-32 h-full bg-accent/5 blur-2xl pointer-events-none" />
               <div className="p-4 bg-accent/10 text-accent rounded-2xl shadow-sm z-10">
                 <Zap className="w-8 h-8" />
@@ -378,7 +409,7 @@ export default function Dashboard() {
             </Card>
           </motion.div>
           <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.4 }} className="h-full">
-            <Card className="border-border h-full hover:border-orange-500 transition-colors flex items-center p-6 gap-6 relative overflow-hidden">
+            <Card className="border-border h-full hover:border-orange-500/40 transition-colors flex items-center p-6 gap-6 relative overflow-hidden">
               <div className="absolute right-0 top-0 w-32 h-full bg-orange-500/5 blur-2xl pointer-events-none" />
               <div className="p-4 bg-orange-500/10 text-orange-500 rounded-2xl shadow-sm z-10">
                 <Flame className="w-8 h-8" />
@@ -395,7 +426,7 @@ export default function Dashboard() {
 
         {/* Column 2: Recent History Widget */}
         <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.5 }} className="h-full relative z-20">
-          <Card className="border-border h-full flex flex-col relative overflow-hidden group">
+          <Card className="border-border h-full flex flex-col relative overflow-hidden group hover:border-primary/40">
             <div className="absolute -top-10 -right-10 w-40 h-40 bg-primary/5 blur-3xl pointer-events-none rounded-full" />
             <CardHeader className="pb-2">
               <CardTitle className="flex items-center gap-2 text-lg">
@@ -406,30 +437,50 @@ export default function Dashboard() {
               {recentCommutes.length === 0 ? (
                 <div className="text-center text-muted-foreground text-sm py-8 font-medium">Log your first trip!</div>
               ) : (
-                recentCommutes.map((commute, i) => (
-                  <div key={commute._id || i} className="flex flex-row items-center justify-between p-3 rounded-xl bg-card border border-border/50 hover:bg-muted/50 transition-colors shadow-sm">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2.5 bg-primary/10 rounded-full text-primary">
-                        <Navigation className="w-4 h-4" />
+                  recentCommutes.map((commute, i) => (
+                    <div key={commute._id || i} className="group/item flex flex-row items-center justify-between p-3 rounded-xl bg-card border border-border/50 hover:bg-muted/50 transition-all shadow-sm">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2.5 bg-primary/10 rounded-full text-primary relative">
+                          <Navigation className="w-4 h-4" />
+                          {commute.isVerified && (
+                            <div className="absolute -top-1 -right-1 bg-emerald-500 text-white p-0.5 rounded-full border-2 border-card shadow-sm" title="AI Verified">
+                              <ShieldCheck className="w-2.5 h-2.5" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-sm font-bold flex items-center gap-1.5">
+                            {commute.transportMode}
+                            {commute.isVerified && <span className="text-[9px] font-black text-emerald-600 bg-emerald-500/10 px-1.5 py-0.5 rounded-sm uppercase tracking-tighter">Verified</span>}
+                          </span>
+                          <span className="text-xs text-muted-foreground flex items-center gap-2">
+                            {commute.distanceKm} km
+                            {commute.proofUrl && (
+                              <a 
+                                href={getFullUrl(commute.proofUrl)} 
+                                target="_blank" 
+                                rel="noreferrer"
+                                className="text-[9px] font-bold text-blue-500 hover:underline uppercase tracking-widest flex items-center gap-1 opacity-0 group-hover/item:opacity-100 transition-opacity"
+                              >
+                                View Proof
+                              </a>
+                            )}
+                          </span>
+                        </div>
                       </div>
-                      <div className="flex flex-col">
-                        <span className="text-sm font-bold">{commute.transportMode}</span>
-                        <span className="text-xs text-muted-foreground">{commute.distanceKm} km</span>
+                      <div className="text-sm font-mono font-bold text-primary bg-primary/10 px-2 py-1 rounded-md">
+                        +{commute.pointsEarned}
                       </div>
                     </div>
-                    <div className="text-sm font-mono font-bold text-primary bg-primary/10 px-2 py-1 rounded-md">
-                      +{commute.pointsEarned}
-                    </div>
-                  </div>
-                ))
-              )}
+                  ))
+                )}
             </CardContent>
           </Card>
         </motion.div>
 
         {/* Column 3: Leaderboard Rank Teaser */}
         <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.6 }} className="h-full relative z-20">
-          <Card className="border-border h-full flex flex-col relative overflow-hidden group">
+          <Card className="border-border h-full flex flex-col relative overflow-hidden group hover:border-yellow-500/40">
             <div className="absolute inset-0 bg-gradient-to-tr from-yellow-500/5 to-transparent pointer-events-none opacity-50 group-hover:opacity-100 transition-opacity" />
             <CardHeader className="pb-2">
               <CardTitle className="flex items-center gap-2 text-lg">
@@ -439,8 +490,8 @@ export default function Dashboard() {
             <CardContent className="flex flex-col flex-1 items-center justify-center p-6 pt-2 text-center gap-5">
               {userRank ? (
                 <>
-                  <div className="w-24 h-24 rounded-full bg-yellow-500/10 flex flex-col items-center justify-center border-4 border-yellow-500/30 shadow-[0_0_20px_rgba(234,179,8,0.15)] relative mt-2 group-hover:scale-105 transition-transform duration-500">
-                    <span className="text-4xl font-black text-yellow-600 drop-shadow-md">#{userRank.rank}</span>
+                  <div className="w-24 h-24 rounded-full bg-yellow-500/10 flex flex-col items-center justify-center border-4 border-yellow-500/30 relative mt-2 group-hover:scale-105 transition-transform duration-500">
+                    <span className="text-4xl font-black text-yellow-600">#{userRank.rank}</span>
                   </div>
                   <div className="space-y-1">
                     <p className="font-bold text-lg">Current Rank <span className="text-yellow-600">#{userRank.rank}</span></p>

@@ -6,18 +6,18 @@ import { Button } from './ui/button';
 export default function ImpactCard({ user, onClose }) {
   if (!user) return null;
 
-  const co2Saved   = Math.round((user.totalPoints || 0) / 10);
+  const co2Saved = Math.round((user.totalPoints || 0) / 10);
   const treesSaved = Math.floor(co2Saved / 20);
-  const streak     = user.currentStreak || 0;
-  const points     = user.totalPoints || 0;
-  const kmAvoided  = Math.round(co2Saved * 5); // rough estimate
+  const streak = user.currentStreak || 0;
+  const points = user.totalPoints || 0;
+  const kmAvoided = Math.round(co2Saved * 5); // rough estimate
 
   // Tier label
   const tier =
-    points >= 10000 ? { label: 'Eco Legend', color: 'text-yellow-400' } :
-    points >= 5000  ? { label: 'Green Champion', color: 'text-primary' } :
-    points >= 1000  ? { label: 'Eco Commuter', color: 'text-blue-400' } :
-                      { label: 'Green Beginner', color: 'text-muted-foreground' };
+    points >= 10000 ? { label: 'Legend', color: 'text-yellow-400' } :
+      points >= 5000 ? { label: 'Champion', color: 'text-primary' } :
+        points >= 1000 ? { label: 'Commuter', color: 'text-blue-400' } :
+          { label: 'Beginner', color: 'text-muted-foreground' };
 
   const initials = user.name
     ? user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
@@ -26,11 +26,27 @@ export default function ImpactCard({ user, onClose }) {
   const handleShare = () => {
     const text = `I've saved ${co2Saved}kg of CO2 and earned ${points.toLocaleString()} green points on Treco! Join your campus eco leaderboard.`;
     if (navigator.share) {
-      navigator.share({ title: 'My Treco Eco Impact', text }).catch(() => {});
+      navigator.share({ title: 'My Treco Impact Card', text }).catch(() => { });
     } else {
       navigator.clipboard.writeText(text);
     }
   };
+
+  const calculateLevelInfo = (points) => {
+    const level = Math.floor(points / 500) + 1;
+    const currentLevelPoints = points % 500;
+    const progress = (currentLevelPoints / 500) * 100;
+
+    let title = "Eco-Seedling";
+    if (level >= 50) title = "Forest Guardian";
+    else if (level >= 30) title = "Nature Protector";
+    else if (level >= 15) title = "Green Warrior";
+    else if (level >= 5) title = "Carbon Crusader";
+
+    return { level, title, progress, nextLevel: level + 1 };
+  };
+
+  const levelInfo = calculateLevelInfo(user?.totalPoints || 0);
 
   return (
     <AnimatePresence>
@@ -61,10 +77,16 @@ export default function ImpactCard({ user, onClose }) {
               {/* Logo + name row */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-primary/20 border border-primary/30 flex items-center justify-center">
-                    <Leaf className="w-4 h-4 text-primary" />
-                  </div>
-                  <span className="font-black text-sm tracking-tight">TRECO</span>
+                  <img
+                    src="/trecoLogo.png"
+                    alt="Treco Logo"
+                    className="h-7 w-auto object-contain"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                      e.currentTarget.nextSibling.style.display = 'flex';
+                    }}
+                  />
+                  <span className="font-bold text-lg tracking-tight">Treco</span>
                 </div>
                 <span className={`text-xs font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border ${tier.color} border-current/20 bg-current/5`}>
                   {tier.label}
@@ -73,7 +95,7 @@ export default function ImpactCard({ user, onClose }) {
 
               {/* Avatar + name */}
               <div className="flex items-center gap-4">
-                <div className="w-14 h-14 rounded-xl bg-primary/20 border border-primary/30 flex items-center justify-center text-primary text-xl font-black shadow-[0_0_20px_rgba(16,185,129,0.2)]">
+                <div className="w-15 h-15 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-primary text-3xl font-black tracking-tight flex-shrink-0">
                   {initials}
                 </div>
                 <div>
@@ -82,22 +104,28 @@ export default function ImpactCard({ user, onClose }) {
                 </div>
               </div>
 
+              <div className="flex justify-center">
+                <span className="text-xs font-bold text-foreground uppercase tracking-[0.1em] bg-white/5 px-3 py-1 rounded-sm border border-white/10 whitespace-nowrap">
+                  LEVEL {levelInfo.level} • {levelInfo.title}
+                </span>
+              </div>
+
               {/* Big CO2 number */}
               <div className="text-center py-4 relative">
-                <div className="absolute inset-0 bg-primary/5 rounded-2xl" />
-                <p className="text-6xl font-black text-primary leading-none">
+                <div className="absolute inset-0 bg-primary/5 rounded-xl" />
+                <p className="text-3xl font-black text-primary leading-none">
                   {co2Saved}
-                  <span className="text-2xl text-muted-foreground ml-1">kg</span>
+                  <span className="text-xl text-muted-foreground ml-1">kg</span>
                 </p>
-                <p className="text-sm text-muted-foreground mt-2 font-medium">CO2 Saved from the Atmosphere</p>
+                <p className="text-sm text-muted-foreground mt-2 font-medium">CO<sub>2</sub> Saved from the Atmosphere</p>
               </div>
 
               {/* Stats grid */}
               <div className="grid grid-cols-3 gap-3">
                 {[
-                  { icon: Trees,  color: 'text-primary',     bg: 'bg-primary/10',     value: treesSaved, label: 'Trees Equiv.' },
-                  { icon: Flame,  color: 'text-orange-400',  bg: 'bg-orange-400/10',  value: `${streak}d`, label: 'Streak' },
-                  { icon: Zap,    color: 'text-accent',      bg: 'bg-accent/10',      value: points >= 1000 ? `${(points/1000).toFixed(1)}k` : points, label: 'Points' },
+                  { icon: Trees, color: 'text-primary', bg: 'bg-primary/10', value: treesSaved, label: 'Trees Equiv.' },
+                  { icon: Flame, color: 'text-orange-400', bg: 'bg-orange-400/10', value: `${streak}d`, label: 'Streak' },
+                  { icon: Zap, color: 'text-accent', bg: 'bg-accent/10', value: points >= 1000 ? `${(points / 1000).toFixed(1)}k` : points, label: 'Points' },
                 ].map(({ icon: Icon, color, bg, value, label }) => (
                   <div key={label} className={`rounded-xl ${bg} p-3 text-center border border-border`}>
                     <Icon className={`w-4 h-4 ${color} mx-auto mb-1`} />
@@ -108,8 +136,8 @@ export default function ImpactCard({ user, onClose }) {
               </div>
 
               {/* Footer tag */}
-              <p className="text-center text-[10px] text-muted-foreground tracking-wider uppercase">
-                treco.app — Green Commutes. Real Rewards.
+              <p className="text-center text-xs text-muted-foreground tracking-wider">
+                Treco — Green Commutes. Real Rewards.
               </p>
             </div>
           </div>
@@ -117,12 +145,9 @@ export default function ImpactCard({ user, onClose }) {
           {/* Action buttons */}
           <div className="flex gap-3 mt-4">
             <Button onClick={handleShare} className="flex-1 gap-2">
-              <Share2 className="w-4 h-4" /> Share Impact
+              <Share2 className="w-4 h-4" /> Share Impact Card
             </Button>
           </div>
-          <p className="text-center text-xs text-muted-foreground mt-2">
-            Take a screenshot to share on social media
-          </p>
         </motion.div>
       </div>
     </AnimatePresence>
