@@ -108,7 +108,7 @@ export default function History() {
   if (loading) {
     return (
       <div className="w-full h-64 flex items-center justify-center">
-        <Spinner message="Loading your activity history..." />
+        <Spinner />
       </div>
     );
   }

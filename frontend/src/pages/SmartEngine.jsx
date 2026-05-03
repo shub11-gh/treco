@@ -315,7 +315,7 @@ export default function SmartEngine() {
   if (recovering) {
     return (
       <div className="w-full max-w-5xl flex flex-col items-center justify-center h-64">
-        <Spinner message="Resyncing Trip State..." />
+        <Spinner />
       </div>
     );
   }

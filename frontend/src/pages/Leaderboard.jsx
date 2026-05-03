@@ -47,7 +47,7 @@ export default function Leaderboard() {
   if (loading) {
     return (
       <div className="w-full h-64 flex items-center justify-center">
-        <Spinner message="Loading Leaderboard..." />
+        <Spinner />
       </div>
     );
   }

@@ -105,7 +105,7 @@ export default function RewardsVault() {
   if (loading) {
     return (
       <div className="w-full h-64 flex items-center justify-center">
-        <Spinner message="Loading Rewards Vault..." />
+        <Spinner />
       </div>
     );
   }
