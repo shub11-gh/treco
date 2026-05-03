@@ -6,25 +6,167 @@ export const aiCommuteSchema = z.object({
   city: z.string().min(2).optional()
 });
 
-// Groq models tried in order
-const MODEL_FALLBACKS = [
-  'llama-3.1-8b-instant',
-  'mixtral-8x7b-32768',
-  'gemma2-9b-it'
-];
+// ── Formatting Helpers ────────────────────────────────────────────────────────
 
-// Mock fallback when ALL models are rate-limited
+function formatDuration(seconds) {
+  const mins = Math.round(seconds / 60);
+  if (mins < 60) return `${mins} min`;
+  const hrs = Math.floor(mins / 60);
+  const remMins = mins % 60;
+  return remMins > 0 ? `${hrs}h ${remMins}m` : `${hrs}h`;
+}
+
+// ── Cost Tables (INR) ─────────────────────────────────────────────────────────
+// BMTC Non-AC & Electric Bus share the same fare tier but different CO2.
+// Vajra/AC Bus handled separately in route logic.
+
+function calculateCost(mode, distanceKm, isPeak) {
+  switch (mode) {
+    case 'Metro':
+      return Math.min(Math.round(15 + distanceKm * 2.5), 60);
+    case 'Electric Bus':
+    case 'Bus':
+      return Math.min(Math.round(10 + distanceKm * 1.5), 35);
+    case 'Walk':
+    case 'Cycle':
+      return 0;
+    case 'Auto':
+      return Math.round(30 + distanceKm * 15);
+    case 'Cab':
+    default: {
+      const base = 60 + distanceKm * 22;
+      return Math.round(isPeak ? base * 1.5 : base);
+    }
+  }
+}
+
+// ── CO2 Savings vs Cab Baseline (0.21 kg CO2/km) ─────────────────────────────
+
+function calculateCO2Saved(mode, distanceKm) {
+  const CAB_BASELINE = 0.21;
+  const EMISSIONS = {
+    'Walk': 0,
+    'Cycle': 0,
+    'Metro': 0.04,
+    'Electric Bus': 0.05,
+    'Bus': 0.12,
+    'Auto': 0.17,
+    'Cab': 0.21,
+  };
+  const modeEmission = EMISSIONS[mode] ?? 0.12;
+  return Math.max(0, parseFloat(((CAB_BASELINE - modeEmission) * distanceKm).toFixed(2)));
+}
+
+// ── Google Maps Directions API Call ──────────────────────────────────────────
+
+async function fetchDirections(origin, destination, mode) {
+  const params = new URLSearchParams({
+    origin,
+    destination,
+    mode,
+    region: 'in',
+    language: 'en',
+    key: process.env.GOOGLE_MAPS_API_KEY,
+  });
+  if (mode === 'transit') {
+    params.append('transit_mode', 'bus|subway|rail');
+  }
+  const url = `https://maps.googleapis.com/maps/api/directions/json?${params}`;
+  const res = await fetch(url);
+  const data = await res.json();
+  return data;
+}
+
+// Analyze a transit leg from Google Maps.
+// Extracts per-step distances AND station/stop names for UI display.
+// Returns: mode, cost, co2Saved, transitSteps[]
+function analyzeTransitLeg(leg, totalDistanceKm, isPeak) {
+  const steps = leg.steps || [];
+  let subwayDistM = 0;
+  let busDistM = 0;
+  const transitSteps = []; // For UI display
+
+  for (const step of steps) {
+    if (step.travel_mode === 'TRANSIT') {
+      const td = step.transit_details || {};
+      const vType = td.line?.vehicle?.type || '';
+      const stepDistM = step.distance?.value || 0;
+      const from = td.departure_stop?.name || '?';
+      const to = td.arrival_stop?.name || '?';
+      const lineName = td.line?.short_name || td.line?.name || '';
+      const numStops = td.num_stops || null;
+
+      if (['SUBWAY', 'HEAVY_RAIL', 'COMMUTER_TRAIN', 'METRO_RAIL'].includes(vType)) {
+        subwayDistM += stepDistM;
+        transitSteps.push({
+          type: 'Metro',
+          from,
+          to,
+          line: lineName,
+          numStops,
+          distKm: parseFloat((stepDistM / 1000).toFixed(1)),
+        });
+      } else if (['BUS', 'TROLLEYBUS', 'INTERCITY_BUS'].includes(vType)) {
+        busDistM += stepDistM;
+        transitSteps.push({
+          type: 'Bus',
+          from,
+          to,
+          line: lineName,
+          numStops,
+          distKm: parseFloat((stepDistM / 1000).toFixed(1)),
+        });
+      }
+    }
+  }
+
+  const subwayDistKm = parseFloat((subwayDistM / 1000).toFixed(1));
+  const busDistKm = parseFloat((busDistM / 1000).toFixed(1));
+  const isMetro = subwayDistKm > 0;
+  const isBus = busDistKm > 0;
+
+  if (isMetro && !isBus) {
+    return {
+      mode: 'Metro',
+      cost: calculateCost('Metro', totalDistanceKm, isPeak),
+      co2Saved: calculateCO2Saved('Metro', totalDistanceKm),
+      transitSteps,
+    };
+  }
+
+  if (isMetro && isBus) {
+    const metroCost = calculateCost('Metro', subwayDistKm, isPeak);
+    const busCost = calculateCost('Electric Bus', busDistKm, isPeak);
+    const metroCO2 = calculateCO2Saved('Metro', subwayDistKm);
+    const busCO2 = calculateCO2Saved('Electric Bus', busDistKm);
+    return {
+      mode: 'Metro + Bus',
+      cost: metroCost + busCost,
+      co2Saved: parseFloat((metroCO2 + busCO2).toFixed(2)),
+      transitSteps,
+    };
+  }
+
+  // Bus-only — upgrade to Electric Bus for the green card
+  return {
+    mode: 'Electric Bus',
+    cost: calculateCost('Electric Bus', totalDistanceKm, isPeak),
+    co2Saved: calculateCO2Saved('Electric Bus', totalDistanceKm),
+    transitSteps,
+  };
+}
+
+// ── Mock Fallback (only used when Google Maps API is unavailable) ─────────────
+
 function buildMockRoutes(source, destination) {
-  const isFarNorth = source.toLowerCase().includes('yelahanka') || destination.toLowerCase().includes('yelahanka');
-  const greenMode = isFarNorth ? 'Electric Bus' : 'Metro';
   const distanceKm = 8;
-
+  const isPeak = false;
   return [
     {
       type: 'Fastest',
       mode: 'Cab',
       timeString: '25 min',
-      costString: 'INR 250',
+      costString: `INR ${calculateCost('Cab', distanceKm, isPeak)}`,
       distanceKm,
       co2SavedKg: 0,
       pointsEarned: 0,
@@ -33,12 +175,12 @@ function buildMockRoutes(source, destination) {
     },
     {
       type: 'Greenest',
-      mode: greenMode,
-      timeString: '40 min',
-      costString: 'INR 25',
+      mode: 'Electric Bus',
+      timeString: '42 min',
+      costString: `INR ${calculateCost('Electric Bus', distanceKm, isPeak)}`,
       distanceKm,
-      co2SavedKg: 1.36,
-      pointsEarned: 14,
+      co2SavedKg: calculateCO2Saved('Electric Bus', distanceKm),
+      pointsEarned: Math.round(calculateCO2Saved('Electric Bus', distanceKm) * 10),
       isGreenChoice: true,
       _mock: true,
     },
@@ -46,181 +188,271 @@ function buildMockRoutes(source, destination) {
       type: 'Economical',
       mode: 'Bus',
       timeString: '50 min',
-      costString: 'INR 20',
+      costString: `INR ${calculateCost('Bus', distanceKm, isPeak)}`,
       distanceKm,
-      co2SavedKg: 0.68,
-      pointsEarned: 7,
+      co2SavedKg: calculateCO2Saved('Bus', distanceKm),
+      pointsEarned: Math.round(calculateCO2Saved('Bus', distanceKm) * 10),
       isGreenChoice: false,
       _mock: true,
     },
   ];
 }
 
-function buildPrompt(source, destination, city) {
-  return `You are the Treco Smart Engine, a high-precision commute analyzer.
-Your goal is to provide 100% FACTUALLY ACCURATE commute data for the path: "${source}" to "${destination}" in ${city} (Default: Bengaluru).
-
-STRICT VERIFICATION PROTOCOL (DO NOT DEVIATE):
-1. REALITY CHECK: Before suggesting a mode, mentally verify if it exists for this specific path. If you are 1% unsure, do NOT suggest it.
-2. METRO GROUND TRUTH: 
-   - PURPLE LINE: Whitefield to Challaghatta (Functional).
-   - GREEN LINE: Nagasandra to Silk Institute (Functional).
-   - PINK/YELLOW LINES: NOT YET FUNCTIONAL. Do NOT use them.
-   - NO-GO ZONES (No Metro nearby): Yelahanka, Hebbal, Sarjapur, Manyata Tech Park, Electronic City (unless Carpool/Bus), BTM Layout (Deep).
-   - RULE: If a Metro station is >3km from either point, the mode MUST be "Auto + Metro" or "Electric Bus". Do NOT say "Metro" if there is no station.
-
-3. COST CALIBRATION (STRICT):
-   - BMTC Bus: INR 15 - 35 (Vajra/AC: 40-90).
-   - Namma Metro: INR 15 - 60.
-   - Ola/Uber/Rapido: Base INR 60 + ~18-25 per km. Peak hours = 1.5x.
-   - Auto: Min INR 30 + ~15 per km.
-
-4. LOGIC CONSTRAINTS:
-   - "Fastest": Usually Cab/Auto. If <2km, say "Walking/Cycle".
-   - "Greenest": Must be a REAL green option. If Metro is impossible, use "Electric Bus" or "Carpool".
-   - "Economical": MUST be the lowest cost (Bus/Walking).
-
-EMISSION MATH (kg CO2 saved vs Cab):
-- Walking/Cycle/Metro: 0.17 kg/km.
-- Electric Bus: 0.15 kg/km.
-- Regular Bus: 0.09 kg/km.
-
-Output MUST be a JSON object with key "routes" containing exactly 3 objects.
-Each object: type, mode, timeString, costString, distanceKm, co2SavedKg, pointsEarned, isGreenChoice.
-pointsEarned = Math.round(co2SavedKg * 10).
-
-CRITICAL: Never hallucinate stations. If you don't know the route, provide a generic "Bus" route based on distance rather than a specific non-existent Metro line.`;
-}
-
-function parseAndSanitize(text) {
-  let parsed;
-  try {
-    const raw = JSON.parse(text);
-    parsed = raw.routes || [];
-  } catch {
-    const match = text.match(/\{[\s\S]*\}/);
-    if (!match) throw new Error('AI returned invalid JSON.');
-    parsed = JSON.parse(match[0]).routes || [];
-  }
-
-  return parsed.map(r => {
-    // Robust key mapping
-    const type = r.type || r.category || 'Route';
-    const modeRaw = r.mode || r.transport || r.vehicle || 'Bus';
-    const time = r.timeString || r.duration || r.time || 'N/A';
-    const cost = r.costString || r.price || r.cost || 'N/A';
-
-    // Sanitize mode (Capital Case for UI)
-    const mode = modeRaw.charAt(0).toUpperCase() + modeRaw.slice(1).toLowerCase();
-
-    return {
-      type: type,
-      mode: mode,
-      timeString: time,
-      costString: cost,
-      distanceKm: Number(r.distanceKm || 5),
-      co2SavedKg: Number(r.co2SavedKg || 0),
-      pointsEarned: Number(r.pointsEarned || 0),
-      isGreenChoice: !!(r.isGreenChoice || type.toLowerCase().includes('green')),
-    };
-  });
-}
+// ── Main Route Calculator ─────────────────────────────────────────────────────
 
 export const calculateAITrip = async (req, res) => {
   try {
-    const { source, destination, city = 'your city' } = req.body;
+    const { source, destination } = req.body;
 
-    // Peak Hour Logic (Bengaluru Time - IST)
+    // If Google Maps API key is not configured, fall back to mocks immediately
+    if (!process.env.GOOGLE_MAPS_API_KEY) {
+      console.warn('[Maps] GOOGLE_MAPS_API_KEY not set — returning mock routes.');
+      res.setHeader('X-AI-Fallback', 'no-api-key');
+      return res.json(buildMockRoutes(source, destination));
+    }
+
+    // Peak hour check (IST)
     const now = new Date();
-    const istOffset = 5.5 * 60 * 60 * 1000;
-    const istDate = new Date(now.getTime() + istOffset);
-    const hour = istDate.getHours();
-    
-    // Peak: 8-11 AM and 5-9 PM
-    const isPeak = (hour >= 8 && hour <= 11) || (hour >= 17 && hour <= 21);
-    const peakContext = `CURRENT TIME STATUS: ${isPeak ? 'PEAK HOURS (Traffic High, Cab prices surged 1.5x)' : 'NON-PEAK HOURS (Traffic Moderate, Standard pricing)'}`;
+    const istHour = new Date(now.getTime() + 5.5 * 3600000).getHours();
+    const isPeak = (istHour >= 8 && istHour <= 11) || (istHour >= 17 && istHour <= 21);
 
-    const prompt = `You are the Treco Smart Engine. ${peakContext}
-Provide commute data for: "${source}" to "${destination}" in ${city}.
+    // Geocoding context: append Bengaluru, India to reduce ambiguity
+    const origin = `${source}, Bengaluru, Karnataka, India`;
+    const dest = `${destination}, Bengaluru, Karnataka, India`;
 
-RULES:
-1. Provide ONLY ONE definitive cost for each route based on the ${peakContext}.
-2. DO NOT list "Peak/Non-Peak" ranges. Just give the single final price.
-` + buildPrompt(source, destination, city);
+    // Fire all 3 direction calls in parallel
+    const [drivingData, transitData, walkingData] = await Promise.all([
+      fetchDirections(origin, dest, 'driving'),
+      fetchDirections(origin, dest, 'transit'),
+      fetchDirections(origin, dest, 'walking'),
+    ]);
 
-    let lastError = null;
+    console.log(`[Maps] driving=${drivingData.status} transit=${transitData.status} walking=${walkingData.status}`);
 
-    for (const model of MODEL_FALLBACKS) {
-      try {
-        const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            "Authorization": "Bearer " + process.env.GROQ_API_KEY,
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            model: model,
-            messages: [{ role: "user", content: prompt }],
-            response_format: { type: "json_object" }
-          })
+    // ── Distance Guards ───────────────────────────────────────────────────────
+
+    // Check if Google Maps couldn't resolve the locations at all
+    if (drivingData.status === 'NOT_FOUND' || drivingData.status === 'ZERO_RESULTS') {
+      return res.status(400).json({
+        message: `Could not find a route between "${source}" and "${destination}" in Bengaluru. Please check your location names and try again.`
+      });
+    }
+
+    if (drivingData.status === 'OK') {
+      const distanceM = drivingData.routes[0].legs[0].distance.value;
+      const distanceKm = distanceM / 1000;
+
+      // Too short: likely same location or within the same campus
+      if (distanceM < 300) {
+        return res.status(400).json({
+          message: `The distance between "${source}" and "${destination}" is less than 300m. That's a short walk — no commute needed!`
         });
+      }
 
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.error?.message || "Groq API Error: " + response.status);
-        }
-
-        const result = parseAndSanitize(data.choices[0].message.content);
-        console.log("[AI] Success with model: " + model);
-        return res.json(result);
-      } catch (err) {
-        const isQuota = err.message.includes('429') || err.message.includes('Rate limit');
-        console.warn("[AI] Model " + model + " failed (" + (isQuota ? 'quota' : 'error') + "): " + err.message);
-        lastError = err;
-        // Continue to the next model for ANY error (decommissioned, quota, format error, etc)
-        continue;
+      // Too long: intercity or interstate travel — out of Treco's scope
+      // Treco is designed for intracity commutes in Bengaluru (max ~50km across the city)
+      if (distanceKm > 50) {
+        return res.status(400).json({
+          message: `This route is ${Math.round(distanceKm)} km long — outside Treco's intracity commute range. Treco supports daily city commutes up to 50 km within Bengaluru.`
+        });
       }
     }
 
-    // All models exhausted — return mock data with a warning header
-    console.warn('[AI] All models failed, returning mock routes.');
-    const mockRoutes = buildMockRoutes(source, destination);
-    res.setHeader('X-AI-Fallback', 'quota-exceeded');
-    return res.json(mockRoutes);
+    const routes = [];
+
+
+    // ── 1. FASTEST (Cab) ───────────────────────────────────────────────────
+    if (drivingData.status === 'OK') {
+      const leg = drivingData.routes[0].legs[0];
+      const distanceKm = parseFloat((leg.distance.value / 1000).toFixed(1));
+      const cost = calculateCost('Cab', distanceKm, isPeak);
+      const co2 = calculateCO2Saved('Cab', distanceKm);
+      const from = leg.start_address.split(',')[0];
+      const to = leg.end_address.split(',')[0];
+
+      routes.push({
+        type: 'Fastest',
+        mode: 'Cab',
+        timeString: formatDuration(leg.duration.value),
+        costString: `INR ${cost}`,
+        distanceKm,
+        co2SavedKg: co2,
+        pointsEarned: 0,
+        isGreenChoice: false,
+        transitSteps: [{ type: 'Cab', from, to, distKm: distanceKm, line: 'Direct Trip' }]
+      });
+    }
+
+    // ── 2. GREENEST (Transit analysis: Metro / Metro+Bus / Electric Bus) ───
+    if (transitData.status === 'OK') {
+      const leg = transitData.routes[0].legs[0];
+      const distanceKm = parseFloat((leg.distance.value / 1000).toFixed(1));
+      const { mode: greenMode, cost, co2Saved, transitSteps } = analyzeTransitLeg(leg, distanceKm, isPeak);
+      routes.push({
+        type: 'Greenest',
+        mode: greenMode,
+        timeString: formatDuration(leg.duration.value),
+        costString: `INR ${cost}`,
+        distanceKm,
+        co2SavedKg: co2Saved,
+        pointsEarned: Math.max(1, Math.round(co2Saved * 10)),
+        isGreenChoice: true,
+        transitSteps,
+      });
+    } else {
+      // No transit found — use Walk if short, otherwise Electric Bus estimate
+      const drivingLeg = drivingData.status === 'OK' ? drivingData.routes[0].legs[0] : null;
+      const distKm = drivingLeg ? parseFloat((drivingLeg.distance.value / 1000).toFixed(1)) : 8;
+      if (walkingData.status === 'OK' && distKm <= 2.5) {
+        const walkLeg = walkingData.routes[0].legs[0];
+        const co2 = calculateCO2Saved('Walk', distKm);
+        const from = walkLeg.start_address.split(',')[0];
+        const to = walkLeg.end_address.split(',')[0];
+
+        routes.push({
+          type: 'Greenest',
+          mode: 'Walk',
+          timeString: formatDuration(walkLeg.duration.value),
+          costString: 'INR 0',
+          distanceKm: distKm,
+          co2SavedKg: co2,
+          pointsEarned: Math.max(1, Math.round(co2 * 10)),
+          isGreenChoice: true,
+          transitSteps: [{ type: 'Walk', from, to, distKm, line: 'Active Travel' }]
+        });
+      } else {
+        // Estimate Electric Bus as 1.6× driving time (stops, traffic)
+        const estDuration = drivingLeg ? Math.round(drivingLeg.duration.value * 1.6) : 2400;
+        const cost = calculateCost('Electric Bus', distKm, isPeak);
+        const co2 = calculateCO2Saved('Electric Bus', distKm);
+        const from = drivingLeg ? drivingLeg.start_address.split(',')[0] : source;
+        const to = drivingLeg ? drivingLeg.end_address.split(',')[0] : destination;
+
+        routes.push({
+          type: 'Greenest',
+          mode: 'Electric Bus',
+          timeString: formatDuration(estDuration),
+          costString: `INR ${cost}`,
+          distanceKm: distKm,
+          co2SavedKg: co2,
+          pointsEarned: Math.max(1, Math.round(co2 * 10)),
+          isGreenChoice: true,
+          transitSteps: [{ type: 'Electric Bus', from, to, distKm, line: 'Estimated Route' }]
+        });
+      }
+    }
+
+    // ── 3. ECONOMICAL (Walk if short, else Regular BMTC Bus) ──────────────
+    const drivingLeg = drivingData.status === 'OK' ? drivingData.routes[0].legs[0] : null;
+    const distKmForBus = drivingLeg ? parseFloat((drivingLeg.distance.value / 1000).toFixed(1)) : 8;
+
+    if (walkingData.status === 'OK') {
+      const walkDistKm = parseFloat((walkingData.routes[0].legs[0].distance.value / 1000).toFixed(1));
+      if (walkDistKm <= 2) {
+        // Walking is free and very eco for short distances
+        const walkLeg = walkingData.routes[0].legs[0];
+        const co2 = calculateCO2Saved('Walk', walkDistKm);
+        const from = walkLeg.start_address.split(',')[0];
+        const to = walkLeg.end_address.split(',')[0];
+
+        routes.push({
+          type: 'Economical',
+          mode: 'Walk',
+          timeString: formatDuration(walkLeg.duration.value),
+          costString: 'INR 0',
+          distanceKm: walkDistKm,
+          co2SavedKg: co2,
+          pointsEarned: Math.max(1, Math.round(co2 * 10)),
+          isGreenChoice: true,
+          transitSteps: [{ type: 'Walk', from, to, distKm: walkDistKm, line: 'Active Travel' }]
+        });
+      } else {
+        // Regular BMTC Bus — empirically ~1.7× driving time (stops + traffic)
+        const busDuration = drivingLeg ? Math.round(drivingLeg.duration.value * 1.7) : 3000;
+        const cost = calculateCost('Bus', distKmForBus, isPeak);
+        const co2 = calculateCO2Saved('Bus', distKmForBus);
+        const from = drivingLeg ? drivingLeg.start_address.split(',')[0] : source;
+        const to = drivingLeg ? drivingLeg.end_address.split(',')[0] : destination;
+
+        routes.push({
+          type: 'Economical',
+          mode: 'Bus',
+          timeString: formatDuration(busDuration),
+          costString: `INR ${cost}`,
+          distanceKm: distKmForBus,
+          co2SavedKg: co2,
+          pointsEarned: Math.max(1, Math.round(co2 * 10)),
+          isGreenChoice: false,
+          transitSteps: [{ type: 'Bus', from, to, distKm: distKmForBus, line: 'Estimated Route' }]
+        });
+      }
+    } else if (drivingLeg) {
+      // Fallback: no walking data but driving data exists — use Bus estimate
+      const busDuration = Math.round(drivingLeg.duration.value * 1.7);
+      const cost = calculateCost('Bus', distKmForBus, isPeak);
+      const co2 = calculateCO2Saved('Bus', distKmForBus);
+      const from = drivingLeg.start_address.split(',')[0];
+      const to = drivingLeg.end_address.split(',')[0];
+
+      routes.push({
+        type: 'Economical',
+        mode: 'Bus',
+        timeString: formatDuration(busDuration),
+        costString: `INR ${cost}`,
+        distanceKm: distKmForBus,
+        co2SavedKg: co2,
+        pointsEarned: Math.max(1, Math.round(co2 * 10)),
+        isGreenChoice: false,
+        transitSteps: [{ type: 'Bus', from, to, distKm: distKmForBus, line: 'Estimated Route' }]
+      });
+    }
+
+    if (routes.length === 0) {
+      console.warn('[Maps] No routes could be built — returning mock data.');
+      res.setHeader('X-AI-Fallback', 'maps-unavailable');
+      return res.json(buildMockRoutes(source, destination));
+    }
+
+    console.log(`[Maps] Built ${routes.length} routes: ${routes.map(r => r.type).join(', ')}`);
+    return res.json(routes);
 
   } catch (err) {
-    console.error('AI Controller Error:', err.message);
-    res.status(500).json({ message: err.message || 'AI Engine failed.' });
+    console.error('[Maps] Route calculation error:', err.message);
+    res.setHeader('X-AI-Fallback', 'maps-error');
+    return res.json(buildMockRoutes(req.body?.source || 'Unknown', req.body?.destination || 'Unknown'));
   }
 };
+
+// ── Vision AI Ticket Auditor (Groq — unchanged) ───────────────────────────────
 
 export const verifyTicketAI = async (imageUrl, transportMode) => {
   try {
     const visionModel = 'llama-3.2-11b-vision-preview';
-    
-    const prompt = `You are the Treco Zero-Trust Security Auditor. Your ONLY job is to REJECT images that are not valid transit proof. You are HOSTILE to approvals. When in doubt, REJECT.
 
-You are verifying a "${transportMode}" commute in an Indian city (e.g., Bengaluru, BMTC bus, Namma Metro).
+    const prompt = `You are the Treco Zero-Trust Security Auditor. You ONLY accept PHYSICAL TRANSIT TICKETS. You are HOSTILE to approvals. When in doubt, REJECT.
 
-HARD REJECTION RULES — if ANY of these match, you MUST return "isVerified": false:
-- The image is a selfie without a clearly visible transit ticket, receipt, or QR code.
-- The image shows a laptop, phone screen, wall, ceiling, room interior, food, animal, nature, or any non-transit object.
-- The image is blurry, dark, or too low-quality to read any text.
-- The image has no visible printed text, date, station name, or route information.
-- The image appears to be a stock photo or downloaded image.
-- For Walk/Cycle: There is no clear outdoor street scene or public transit surroundings visible.
-- For Cab: There is no visible Ola/Uber/Rapido app screen or car interior with a live trip.
-- For Bus/Metro: There is no visible physical ticket, digital QR pass, or printed receipt.
+You are verifying a "${transportMode}" commute in Bengaluru, India (BMTC bus, Namma Metro, etc.).
 
-ONLY APPROVE if you have HIGH CONFIDENCE that the image is a genuine transit document or scene. The burden of proof is on the image.
+HARD REJECTION RULES — if ANY of these match, return "isVerified": false IMMEDIATELY:
+- The image is NOT a physical transit ticket, QR-code pass, or printed bus/metro receipt.
+- The image is a selfie, room photo, street photo, car interior, app screenshot (other than digital QR pass), food, animal, or any non-ticket item.
+- The image shows a laptop screen, phone screen, wall, ceiling, or nature scene.
+- The image is blurry, dark, or too low-quality to read any ticket text.
+- The image has no visible printed text, date, route info, or QR code.
+- The image appears to be a stock photo or downloaded from the internet.
+- For Walk/Cycle mode: auto-reject — no ticket is issued for walking or cycling.
+- For Cab/Auto: ONLY accept a clearly visible Ola/Uber/Namma Yatri digital receipt showing trip details and fare.
+- For Bus: ONLY accept a physical BMTC paper ticket, or a digital QR mobile pass.
+- For Metro: ONLY accept a Namma Metro QR code ticket, smart card receipt, or printed ticket.
+
+APPROVAL THRESHOLD: You need CLEAR, UNAMBIGUOUS evidence of a valid transit ticket. No ticket = no approval.
 
 DATA EXTRACTION (OCR) — only if approved:
 Extract these fields if visible (return null if missing or unreadable):
 - date: Date printed on the ticket/receipt.
 - source: Starting location/station.
 - destination: Ending location/station.
-- vehicleNo: Bus number, plate number, or train/metro line number.
+- vehicleNo: Bus number, plate number, or metro line.
 
 RESPONSE FORMAT: Return ONLY a valid JSON object:
 {

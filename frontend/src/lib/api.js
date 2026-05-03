@@ -23,11 +23,11 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       // Clear local auth state
       localStorage.removeItem('token');
-      // Redirect to root — React Router will show the Auth page since
-      // useAuthStore.isAuthenticated will be false after token removal.
-      // We avoid importing the store here (circular dep risk) and just reload.
+      // Redirect to root with a message
       if (window.location.pathname !== '/') {
-        window.location.href = '/';
+        // Since we are outside React component, use standard DOM or simple reload
+        // Alternatively we can append ?expired=true to URL
+        window.location.href = '/?expired=true';
       }
     }
     return Promise.reject(error);

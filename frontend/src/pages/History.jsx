@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { ListSkeleton } from '../components/Skeletons';
 import api from '../lib/api';
+import Spinner from '../components/ui/Spinner';
 
 const modeConfig = {
   Bus: { icon: Bus, color: 'text-blue-400', bg: 'bg-blue-400/10', chartColor: '#60a5fa', label: 'Bus' },
@@ -106,9 +107,8 @@ export default function History() {
 
   if (loading) {
     return (
-      <div className="w-full max-w-3xl flex flex-col gap-4">
-        <div className="h-9 w-56 bg-muted rounded-lg animate-pulse" />
-        <ListSkeleton count={4} />
+      <div className="w-full h-64 flex items-center justify-center">
+        <Spinner message="Loading your activity history..." />
       </div>
     );
   }

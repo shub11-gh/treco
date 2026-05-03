@@ -3,9 +3,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '../compone
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
-import { Zap, Trees, Clock, Wallet, MapPin, Sparkles, Navigation, Info, RefreshCw, BrainCircuit } from 'lucide-react';
+import { Zap, Trees, Clock, Wallet, MapPin, Sparkles, Navigation, Info, RefreshCw, BrainCircuit, TrainFront, Bus, Car, Footprints, ChevronDown } from 'lucide-react';
 import LocationInput from '../components/LocationInput';
 import MapModal from '../components/MapModal';
+import Spinner from '../components/ui/Spinner';
 import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
 import toast from 'react-hot-toast';
@@ -20,7 +21,7 @@ export default function SmartEngine() {
   const [aiRoutes, setAiRoutes] = useState(null);
   const [isMock, setIsMock] = useState(false);
   const [logging, setLogging] = useState(false);
-
+  const [openAccordion, setOpenAccordion] = useState(null);
   const [mapOpen, setMapOpen] = useState(false);
   const [mapTarget, setMapTarget] = useState(null); // 'source' or 'destination'
   const [activeCommute, setActiveCommute] = useState(null); // stores the activity record
@@ -35,7 +36,7 @@ export default function SmartEngine() {
   const [notificationPermission, setNotificationPermission] = useState('default');
 
   const { user, checkAuth } = useAuthStore();
-  
+
   const getFullUrl = (url) => {
     if (!url) return null;
     if (url.startsWith('http')) return url;
@@ -92,9 +93,10 @@ export default function SmartEngine() {
   };
 
   const getDeepLink = (mode) => {
-    if (mode === 'Metro') return 'https://wa.me/918105556677'; // BMRCL WhatsApp
-    if (mode === 'Bus') return 'https://tummoc.com'; // Tummoc
+    if (mode === 'Metro' || mode === 'Metro + Bus') return 'https://wa.me/918105556677'; // BMRCL WhatsApp
+    if (mode === 'Bus' || mode === 'Electric Bus') return 'https://tummoc.com'; // Tummoc
     if (mode === 'Cab' || mode === 'Auto') return 'https://nammayatri.in'; // Namma Yatri
+    // Walk and Cycle need no booking app
     return null;
   };
 
@@ -125,31 +127,18 @@ export default function SmartEngine() {
   const getRoutePriority = (routes) => {
     if (!routes || routes.length === 0) return [];
 
-    // Parse metrics for sorting
-    const parsed = routes.map((r, idx) => {
-      const costStr = r.costString || "0";
-      const numbers = costStr.match(/\d+/g);
-      const avgCost = numbers ? (numbers.reduce((a, b) => Number(a) + Number(b), 0) / numbers.length) : 9999;
-      return { ...r, avgCost, originalIdx: idx };
-    });
-
-    // 1st Priority: Max CO2 Saved
-    const sortedByEco = [...parsed].sort((a, b) => b.co2SavedKg - a.co2SavedKg);
-    const topEcoIdx = sortedByEco[0].originalIdx;
-
-    // 2nd Priority: Lowest Cost (excluding the top eco choice)
-    const remainingByCost = parsed.filter(r => r.originalIdx !== topEcoIdx).sort((a, b) => a.avgCost - b.avgCost);
-    const topCostIdx = remainingByCost.length > 0 ? remainingByCost[0].originalIdx : -1;
-
-    // Map back to original order with new priority info
-    return parsed.map(r => {
-      if (r.originalIdx === topEcoIdx) return { ...r, color: 'emerald', badge: 'Max Eco Impact' };
-      if (r.originalIdx === topCostIdx) return { ...r, color: 'orange', badge: 'Economical Choice' };
+    return routes.map((r) => {
+      const type = (r.type || '').toLowerCase();
+      if (type.includes('green')) {
+        return { ...r, color: 'emerald', badge: 'Max Eco Impact' };
+      }
+      if (type.includes('econom')) {
+        return { ...r, color: 'orange', badge: 'Economical Choice' };
+      }
+      // Fastest / default — no badge
       return { ...r, color: 'border', badge: null };
     });
   };
-
-
 
   // Request notification permission on mount
   React.useEffect(() => {
@@ -163,17 +152,53 @@ export default function SmartEngine() {
 
   const sendNotification = (title, body) => {
     if (Notification.permission === 'granted') {
-      new Notification(title, { 
-        body, 
+      new Notification(title, {
+        body,
         icon: '/trecoLogo.png',
         badge: '/trecoLogo.png'
       });
     }
   };
 
+  const compressImage = (file) => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target.result;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX_WIDTH = 1200;
+          let width = img.width;
+          let height = img.height;
+          if (width > MAX_WIDTH) {
+            height = Math.round((height * MAX_WIDTH) / width);
+            width = MAX_WIDTH;
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          canvas.toBlob((blob) => {
+            resolve(new File([blob], file.name, {
+              type: 'image/jpeg',
+              lastModified: Date.now()
+            }));
+          }, 'image/jpeg', 0.8);
+        };
+      };
+    });
+  };
+
   const handleUploadProof = async (e) => {
-    const file = e.target.files[0];
+    let file = e.target.files[0];
     if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) { // Compress if > 2MB
+      toast('Compressing image...', { icon: '🔄' });
+      file = await compressImage(file);
+    }
 
     setUploadingProof(true);
     const formData = new FormData();
@@ -199,7 +224,15 @@ export default function SmartEngine() {
     try {
       const safeEnumList = ['Bus', 'Metro', 'Walk', 'Cycle', 'Cab', 'Auto'];
       const rawMode = (route.mode || 'Bus').trim();
-      const safeMode = safeEnumList.includes(rawMode) ? rawMode : (safeEnumList.find(m => rawMode.toLowerCase().includes(m.toLowerCase())) || 'Cab');
+      // 'Electric Bus' → stored as 'Bus'; 'Metro + Bus' → stored as 'Metro' (primary transit component)
+      let safeMode;
+      if (rawMode === 'Metro + Bus') {
+        safeMode = 'Metro';
+      } else {
+        safeMode = safeEnumList.includes(rawMode)
+          ? rawMode
+          : (safeEnumList.find(m => rawMode.toLowerCase().includes(m.toLowerCase())) || 'Cab');
+      }
 
       const { data } = await api.post('/commutes/log', {
         mode: safeMode,
@@ -215,17 +248,25 @@ export default function SmartEngine() {
       setActiveCommute({ ...data.activity, routeInfo: route });
 
       // --- SCHEDULE NOTIFICATION REMINDER ---
-      const estMinutes = parseInt(route.timeString) || 30;
-      const reminderMs = (estMinutes + 5) * 60 * 1000; // Est time + 5 mins buffer
-      
+      // Parse duration from format '25 min' or '1h 10m'
+      const timeStr = route.timeString || '30 min';
+      const hrsMatch = timeStr.match(/(\d+)h/);
+      const minsMatch = timeStr.match(/(\d+)\s*m(?:in)?/);
+      const estMinutes = (hrsMatch ? parseInt(hrsMatch[1]) * 60 : 0) + (minsMatch ? parseInt(minsMatch[1]) : 30);
+      const reminderMs = (estMinutes + 5) * 60 * 1000;
+
       setTimeout(() => {
         sendNotification("Treco: Trip Check-in", `You should have arrived at ${destination} by now. Don't forget to verify your ${safeMode} trip!`);
       }, reminderMs);
 
       // Deep link redirection
-      const link = getDeepLink(safeMode);
+      const link = getDeepLink(rawMode);
       if (link) {
-        toast.success(`Opening ${safeMode} booking app...`);
+        if (rawMode === 'Metro + Bus') {
+          toast.success("Opening Metro booking. Please book the bus separately.");
+        } else {
+          toast.success(`Opening ${safeMode} booking app...`);
+        }
         window.open(link, '_blank');
       }
     } catch (err) {
@@ -273,12 +314,8 @@ export default function SmartEngine() {
 
   if (recovering) {
     return (
-      <div className="w-full max-w-5xl flex flex-col items-center justify-center h-64 gap-4">
-        <div className="relative w-16 h-16">
-          <div className="absolute inset-0 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-          <img src="/trecoLogo.png" alt="" className="absolute inset-2 w-12 h-12 object-contain" />
-        </div>
-        <p className="text-muted-foreground font-mono animate-pulse uppercase tracking-widest text-xs">Resyncing Trip State...</p>
+      <div className="w-full max-w-5xl flex flex-col items-center justify-center h-64">
+        <Spinner message="Resyncing Trip State..." />
       </div>
     );
   }
@@ -371,63 +408,71 @@ export default function SmartEngine() {
                 </div>
               </div>
 
-              {/* MANDATORY PROOF UPLOAD SECTION */}
-              <div className="w-full max-w-md mt-4 p-5 rounded-2xl bg-background/60 border-2 border-dashed border-primary/20 flex flex-col items-center gap-4 group hover:border-primary/50 transition-all">
-                {proofPreview ? (
-                  <div className="relative group">
-                    <img 
-                      src={getFullUrl(proofPreview)} 
-                      alt="Proof" 
-                      className="w-32 h-32 object-cover rounded-xl border-2 border-primary shadow-lg"
-                    />
-                    <div className="absolute inset-0 bg-primary/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-xl">
-                      <span className="text-[10px] font-bold text-white uppercase tracking-widest bg-primary px-2 py-1 rounded">Verified</span>
+              {/* PROOF UPLOAD SECTION — not required for Walk/Cycle */}
+              {activeCommute.transportMode === 'Walk' || activeCommute.transportMode === 'Cycle' ? (
+                <div className="w-full max-w-md mt-4 p-5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex flex-col items-center gap-2">
+                  <div className="text-emerald-500 font-bold text-sm">No ticket required for {activeCommute.transportMode}</div>
+                  <div className="text-[11px] text-muted-foreground">Your eco trip will be verified automatically on completion.</div>
+                </div>
+              ) : (
+                <div className="w-full max-w-md mt-4 p-5 rounded-2xl bg-background/60 border-2 border-dashed border-primary/20 flex flex-col items-center gap-4 group hover:border-primary/50 transition-all">
+                  {proofPreview ? (
+                    <div className="relative group">
+                      <img
+                        src={getFullUrl(proofPreview)}
+                        alt="Proof"
+                        className="w-32 h-32 object-cover rounded-xl border-2 border-primary shadow-lg"
+                      />
+                      <div className="absolute inset-0 bg-primary/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-xl">
+                        <span className="text-[10px] font-bold text-white uppercase tracking-widest bg-primary px-2 py-1 rounded">Verified</span>
+                      </div>
                     </div>
-                  </div>
-                ) : (
-                  <div className="p-4 bg-primary/10 rounded-full text-primary group-hover:scale-110 transition-transform">
-                    <Zap className="w-8 h-8 fill-current" />
-                  </div>
-                )}
-                
-                <div className="text-center">
-                  <h4 className="text-sm font-bold">Mandatory Visual Proof</h4>
-                  <p className="text-[10px] text-muted-foreground mt-1">Upload ticket for Bus/Metro/Auto or destination selfie for Walk/Cycle.</p>
-                </div>
+                  ) : (
+                    <div className="p-4 bg-primary/10 rounded-full text-primary group-hover:scale-110 transition-transform">
+                      <Zap className="w-8 h-8 fill-current" />
+                    </div>
+                  )}
 
-                <div className="w-full relative">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    capture="environment"
-                    onChange={handleUploadProof}
-                    className="hidden"
-                    id="proof-upload"
-                    disabled={uploadingProof || isVerified}
-                  />
-                  <label
-                    htmlFor="proof-upload"
-                    className={`flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold cursor-pointer transition-all w-full shadow-sm ${
-                      isVerified 
-                        ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' 
+                  <div className="text-center">
+                    <h4 className="text-sm font-bold">Mandatory Visual Proof</h4>
+                    <p className="text-[10px] text-muted-foreground mt-1">Upload your ticket or QR pass to verify your trip.</p>
+                  </div>
+
+                  <div className="w-full relative">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      onChange={handleUploadProof}
+                      className="hidden"
+                      id="proof-upload"
+                      disabled={uploadingProof || isVerified}
+                    />
+                    <label
+                      htmlFor="proof-upload"
+                      className={`flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold cursor-pointer transition-all w-full shadow-sm ${isVerified
+                        ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
                         : 'bg-primary text-primary-foreground hover:shadow-lg active:scale-95'
-                    }`}
-                  >
-                    {uploadingProof ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                    {uploadingProof ? 'AI Scanning...' : isVerified ? 'Proof Authenticated' : 'Capture Proof'}
-                  </label>
+                        }`}
+                    >
+                      {uploadingProof ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                      {uploadingProof ? 'AI Scanning...' : isVerified ? 'Proof Authenticated' : 'Capture Proof'}
+                    </label>
+                  </div>
                 </div>
-              </div>
+              )}
 
               <div className="flex flex-col sm:flex-row gap-4 w-full max-w-md mt-2">
                 <Button
                   onClick={() => finishJourney(activeCommute._id)}
-                  disabled={logging || uploadingProof || !isVerified}
-                  className={`flex-1 py-7 font-black text-lg rounded-2xl shadow-xl transition-all ${
-                    isVerified 
-                      ? 'bg-primary text-primary-foreground shadow-primary/20' 
-                      : 'bg-muted text-muted-foreground grayscale cursor-not-allowed opacity-50'
-                  }`}
+                  disabled={logging || uploadingProof || (
+                    // Walk/Cycle auto-verified, all other modes need proof
+                    activeCommute.transportMode !== 'Walk' && activeCommute.transportMode !== 'Cycle' && !isVerified
+                  )}
+                  className={`flex-1 py-7 font-black text-lg rounded-2xl shadow-xl transition-all ${isVerified
+                    ? 'bg-primary text-primary-foreground shadow-primary/20'
+                    : 'bg-muted text-muted-foreground grayscale cursor-not-allowed opacity-50'
+                    }`}
                 >
                   {logging ? 'Verifying...' : 'Verify Arrival'}
                 </Button>
@@ -455,28 +500,26 @@ export default function SmartEngine() {
       {/* Output Section */}
       <AnimatePresence>
         {loading && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex justify-center items-center h-32">
-            <div className="flex flex-col items-center gap-4">
-              <div className="flex gap-2">
-                <div className="w-3 h-3 rounded-full bg-accent animate-bounce" style={{ animationDelay: "0ms" }}></div>
-                <div className="w-3 h-3 rounded-full bg-primary animate-bounce" style={{ animationDelay: "150ms" }}></div>
-                <div className="w-3 h-3 rounded-full bg-accent animate-bounce" style={{ animationDelay: "300ms" }}></div>
-              </div>
-              <p className="text-muted-foreground text-sm font-mono tracking-widest">Processing your request...</p>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col justify-center items-center h-40 gap-6">
+            <div className="relative w-16 h-16">
+              <div className="absolute inset-0 rounded-full border-4 border-primary/20"></div>
+              <div className="absolute inset-0 rounded-full border-4 border-primary border-t-transparent animate-spin"></div>
+              <div className="absolute inset-[38%] bg-primary rounded-full animate-pulse"></div>
             </div>
+            <p className="text-muted-foreground text-sm font-mono tracking-widest uppercase animate-pulse">Processing Route Data...</p>
           </motion.div>
         )}
 
         {aiRoutes && !loading && !activeCommute && (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col gap-6">
-            {/* Mock data banner */}
+            {/* Mock data banner — shown only when Maps API is unavailable */}
             {isMock && (
               <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-500 text-sm">
                 <Info className="w-4 h-4 flex-shrink-0" />
-                <span>AI quota exceeded. You can still log a commute to earn points.</span>
+                <span>Showing estimated routes. Real-time data unavailable — you can still log a commute to earn points.</span>
               </div>
             )}
-            <div className="grid md:grid-cols-3 gap-6">
+            <div className="grid md:grid-cols-3 gap-6 items-start">
               {getRoutePriority(aiRoutes).map((route, idx) => (
                 <Card key={idx} className={`relative overflow-hidden flex flex-col transition-all duration-300 transform hover:-translate-y-1 backdrop-blur-xl hover:shadow-lg ${route.color === 'emerald' ? 'border-primary bg-primary/10' :
                   route.color === 'orange' ? 'border-orange-500/50 bg-orange-500/10' :
@@ -491,9 +534,9 @@ export default function SmartEngine() {
 
                   <CardHeader className={`pb-4 ${route.badge ? 'pt-8' : ''}`}>
                     <CardTitle className="flex items-center justify-between gap-2">
-                      <span className="text-xl whitespace-nowrap">{route.type}</span>
+                      <span className="text-xl whitespace-nowrap mt-1">{route.type}</span>
                       <span
-                        className={`text-[10px] px-2 py-1 rounded font-mono uppercase tracking-tighter truncate max-w-[140px] ${route.color === 'emerald' ? 'bg-primary/20 text-primary' :
+                        className={`text-xs px-2 py-1 mt-1 rounded font-bold uppercase tracking-tighter truncate max-w-[140px] ${route.color === 'emerald' ? 'bg-primary/20 text-primary' :
                           route.color === 'orange' ? 'bg-orange-500/20 text-orange-500' :
                             'bg-muted text-muted-foreground'
                           }`}
@@ -519,14 +562,71 @@ export default function SmartEngine() {
                         {route.co2SavedKg} kg
                       </div>
                     </div>
+
+                    {route.transitSteps && route.transitSteps.length > 0 && (
+                      <div className="mt-4 pt-4 border-t border-border/50">
+                        <button
+                          type="button"
+                          onClick={() => setOpenAccordion(openAccordion === idx ? null : idx)}
+                          className="w-full text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center justify-between outline-none select-none hover:text-foreground transition-colors cursor-pointer"
+                        >
+                          <span>View Route Details</span>
+                          <ChevronDown
+                            className={`w-4 h-4 transition-transform duration-200 ${openAccordion === idx ? 'rotate-180' : ''}`}
+                          />
+                        </button>
+
+                        {openAccordion === idx && (
+                          <div className="space-y-3 relative before:absolute before:inset-0 before:ml-[11px] before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-border before:to-transparent mt-4">
+                            {route.transitSteps.map((step, sIdx) => (
+                              <div key={sIdx} className="relative flex items-start gap-3">
+                                <div className="flex items-center justify-center w-6 h-6 rounded-full bg-background border border-border z-10 flex-shrink-0 mt-0.5 shadow-sm">
+                                  {step.type === 'Metro' ? <TrainFront className="w-3.5 h-3.5 text-primary" /> :
+                                    step.type === 'Walk' ? <Footprints className="w-3.5 h-3.5 text-green-500" /> :
+                                      step.type === 'Cab' ? <Car className="w-3.5 h-3.5 text-muted-foreground" /> :
+                                        <Bus className="w-3.5 h-3.5 text-orange-500" />}
+                                </div>
+                                <div className="flex-1 bg-background/40 rounded-md border border-border p-2">
+                                  <div className="text-xs font-bold flex items-center gap-1.5 mb-1">
+                                    <span className={
+                                      step.type === 'Metro' ? 'text-primary' :
+                                        step.type === 'Walk' ? 'text-green-500' :
+                                          step.type === 'Cab' ? 'text-foreground' : 'text-orange-500'
+                                    }>{step.type}</span>
+                                    {step.line && <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded text-muted-foreground">{step.line}</span>}
+                                  </div>
+                                  <div className="text-[11px] text-muted-foreground leading-tight">
+                                    <span className="font-medium text-foreground">{step.from}</span>
+                                    <span className="mx-1">→</span>
+                                    <span className="font-medium text-foreground">{step.to}</span>
+                                  </div>
+                                  <div className="text-[10px] text-muted-foreground mt-1.5 flex items-center gap-2">
+                                    <span>{step.distKm} km</span>
+                                    {step.numStops && (
+                                      <>
+                                        <span className="w-1 h-1 rounded-full bg-border"></span>
+                                        <span>{step.numStops} stops</span>
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </CardContent>
 
                   <CardFooter>
                     <Button
                       onClick={() => startJourney(route)}
                       disabled={logging}
-                      variant={route.color === 'emerald' ? "default" : "outline"}
-                      className={`w-full font-bold gap-2 ${route.color !== 'emerald' ? 'text-foreground hover:bg-muted' : 'shadow-lg shadow-primary/20'}`}
+                      variant={route.color === 'emerald' || route.color === 'orange' ? "default" : "outline"}
+                      className={`w-full font-bold gap-2 ${route.color === 'emerald' ? 'shadow-lg shadow-primary/20' :
+                        route.color === 'orange' ? 'bg-orange-500 hover:bg-orange-600 text-white shadow-lg shadow-orange-500/20 border-0' :
+                          'text-foreground hover:bg-muted'
+                        }`}
                     >
                       Take Route & Earn {route.pointsEarned} pts
                     </Button>

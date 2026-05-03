@@ -9,6 +9,7 @@ import toast from 'react-hot-toast';
 import api from '../lib/api';
 import useAuthStore from '../store/useAuthStore';
 import { CardGridSkeleton } from '../components/Skeletons';
+import Spinner from '../components/ui/Spinner';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/tabs';
 
 // Map reward titles to icons
@@ -103,9 +104,8 @@ export default function RewardsVault() {
 
   if (loading) {
     return (
-      <div className="w-full max-w-5xl flex flex-col gap-6">
-        <div className="h-9 w-48 bg-muted rounded-lg animate-pulse" />
-        <CardGridSkeleton count={6} />
+      <div className="w-full h-64 flex items-center justify-center">
+        <Spinner message="Loading Rewards Vault..." />
       </div>
     );
   }

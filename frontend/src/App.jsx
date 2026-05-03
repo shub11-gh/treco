@@ -18,6 +18,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 import ImpactCard from './components/ImpactCard';
 import TopographicBackground from './components/ui/TopographicBackground';
 import EcoParticles from './components/ui/EcoParticles';
+import Spinner from './components/ui/Spinner';
 import useAuthStore from './store/useAuthStore';
 
 // ── Page title hook ─────────────────────────────────────────────────────────
@@ -42,6 +43,15 @@ function useDarkMode() {
     const stored = localStorage.getItem('theme');
     return stored ? stored === 'dark' : true; // default dark
   });
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('expired') === 'true') {
+      toast.error('Session expired. Please log in again.');
+      // Remove the parameter from URL to prevent showing it again on refresh
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
@@ -69,80 +79,80 @@ function Header({ dark, setDark, onShowImpact, setAuthMode }) {
 
   return (
     <>
-    <header className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container flex h-20 items-center px-4 md:px-8 mx-auto justify-between">
-        {/* Logo */}
-        <Link to="/" className="flex shrink-0 items-center gap-2">
-          <img
-            src="/trecoLogo.png"
-            alt="Treco Logo"
-            className="h-15 w-auto object-contain"
-            onError={(e) => {
-              e.currentTarget.style.display = 'none';
-              e.currentTarget.nextSibling.style.display = 'flex';
-            }}
-          />
-          <span className="flex items-center gap-2 font-black text-2xl md:text-3xl text-[#138851ff] tracking-tight">
-            Treco
-          </span>
-        </Link>
-
-        {/* Desktop nav */}
-        <nav className="hidden md:flex items-center justify-center flex-1 gap-8 text-base font-medium">
-          {navLinks.map(({ to, icon: Icon, label, accent }) => (
-            <Link
-              key={to}
-              to={to}
-              className={`transition-all flex items-center gap-1.5 ${isActive(to)
-                ? accent
-                  ? 'text-accent font-bold'
-                  : 'text-[#138851ff] font-bold'
-                : accent
-                  ? 'text-muted-foreground hover:text-accent'
-                  : 'text-muted-foreground hover:text-[#138851ff]'
-                }`}
-            >
-              <Icon className="w-5.5 h-5.5" /> {label}
-            </Link>
-          ))}
-        </nav>
-
-        {/* Right actions */}
-        <div className="flex shrink-0 items-center justify-end gap-2">
-          {/* Dark mode toggle */}
-          <button
-            onClick={() => setDark(d => !d)}
-            className="text-muted-foreground hover:text-[#138851ff] transition-colors p-2 rounded-lg hover:bg-muted"
-            title={dark ? 'Switch to light mode' : 'Switch to dark mode'}
-          >
-            {dark ? <Sun className="w-5.5 h-5.5" /> : <Moon className="w-5.5 h-5.5" />}
-          </button>
-
-          {/* Share eco impact */}
-          <button
-            onClick={onShowImpact}
-            className="text-muted-foreground hover:text-primary transition-colors p-2 rounded-lg hover:bg-muted"
-            title="My Eco Impact Card"
-          >
-            <Sparkles className="w-5.5 h-5.5" />
-          </button>
-
-          {/* Profile link */}
-          <Link
-            to="/profile"
-            className={`p-2 rounded-lg hover:bg-muted transition-colors ${isActive('/profile') ? 'text-primary' : 'text-muted-foreground hover:text-[#138851ff]'}`}
-            title="My Profile"
-          >
-            <UserCircle className="w-5.5 h-5.5" />
+      <header className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="container flex h-20 items-center px-4 md:px-8 mx-auto justify-between">
+          {/* Logo */}
+          <Link to="/" className="flex shrink-0 items-center gap-2">
+            <img
+              src="/trecoLogo.png"
+              alt="Treco Logo"
+              className="h-15 w-auto object-contain"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+                e.currentTarget.nextSibling.style.display = 'flex';
+              }}
+            />
+            <span className="flex items-center gap-2 font-black text-2xl md:text-3xl text-[#138851ff] tracking-tight">
+              Treco
+            </span>
           </Link>
 
-          {/* Logout Trigger */}
-          <button onClick={() => setShowLogoutConfirm(true)} className="text-muted-foreground hover:text-red-400 transition-colors p-2 flex items-center gap-1.5 text-base font-medium rounded-lg hover:bg-muted" title="Logout">
-            <LogOut className="w-5.5 h-5.5" />
-          </button>
+          {/* Desktop nav */}
+          <nav className="hidden md:flex items-center justify-center flex-1 gap-8 text-base font-medium">
+            {navLinks.map(({ to, icon: Icon, label, accent }) => (
+              <Link
+                key={to}
+                to={to}
+                className={`transition-all flex items-center gap-1.5 ${isActive(to)
+                  ? accent
+                    ? 'text-accent font-bold'
+                    : 'text-[#138851ff] font-bold'
+                  : accent
+                    ? 'text-muted-foreground hover:text-accent'
+                    : 'text-muted-foreground hover:text-[#138851ff]'
+                  }`}
+              >
+                <Icon className="w-5.5 h-5.5" /> {label}
+              </Link>
+            ))}
+          </nav>
+
+          {/* Right actions */}
+          <div className="flex shrink-0 items-center justify-end gap-2">
+            {/* Dark mode toggle */}
+            <button
+              onClick={() => setDark(d => !d)}
+              className="text-muted-foreground hover:text-[#138851ff] transition-colors p-2 rounded-lg hover:bg-muted"
+              title={dark ? 'Switch to light mode' : 'Switch to dark mode'}
+            >
+              {dark ? <Sun className="w-5.5 h-5.5" /> : <Moon className="w-5.5 h-5.5" />}
+            </button>
+
+            {/* Share eco impact */}
+            <button
+              onClick={onShowImpact}
+              className="text-muted-foreground hover:text-primary transition-colors p-2 rounded-lg hover:bg-muted"
+              title="My Eco Impact Card"
+            >
+              <Sparkles className="w-5.5 h-5.5" />
+            </button>
+
+            {/* Profile link */}
+            <Link
+              to="/profile"
+              className={`p-2 rounded-lg hover:bg-muted transition-colors ${isActive('/profile') ? 'text-primary' : 'text-muted-foreground hover:text-[#138851ff]'}`}
+              title="My Profile"
+            >
+              <UserCircle className="w-5.5 h-5.5" />
+            </Link>
+
+            {/* Logout Trigger */}
+            <button onClick={() => setShowLogoutConfirm(true)} className="text-muted-foreground hover:text-red-400 transition-colors p-2 flex items-center gap-1.5 text-base font-medium rounded-lg hover:bg-muted" title="Logout">
+              <LogOut className="w-5.5 h-5.5" />
+            </button>
+          </div>
         </div>
-      </div>
-    </header>
+      </header>
 
       {/* Mobile bottom nav */}
       <div className="md:hidden flex h-20 items-center px-2 justify-around border-t border-border bg-background/95 backdrop-blur fixed bottom-0 w-full z-50 pb-safe">
@@ -220,6 +230,12 @@ function Header({ dark, setDark, onShowImpact, setAuthMode }) {
 function AuthHeader({ dark, setDark, authMode, setAuthMode }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+  const scrollTo = (id) => {
+    setMobileMenuOpen(false);
+    setTimeout(() => {
+      document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
+    }, 150);
+  };
   return (
     <header className="w-full border-b border-border bg-background/50 backdrop-blur-md sticky top-0 z-50">
       <div className="container flex h-20 items-center px-4 md:px-8 mx-auto justify-between relative">
@@ -233,8 +249,8 @@ function AuthHeader({ dark, setDark, authMode, setAuthMode }) {
 
         {/* Middle Navigation (Hidden on small screens) */}
         <nav className="hidden xl:flex absolute left-1/2 -translate-x-1/2 items-center gap-8 text-lg text-muted-foreground whitespace-nowrap">
+          <a href="#campuses" className="hover:text-accent transition-colors">Eco-Hubs</a>
           <a href="#features" className="hover:text-accent transition-colors">Features</a>
-          <a href="#campuses" className="hover:text-accent transition-colors">Campuses</a>
           <a href="#mission" className="hover:text-accent transition-colors">Mission</a>
           <a href="#leaderboard" className="flex items-center gap-1.5 hover:text-accent transition-colors">Global Leaderboard</a>
         </nav>
@@ -287,10 +303,10 @@ function AuthHeader({ dark, setDark, authMode, setAuthMode }) {
           >
             <div className="flex flex-col px-6 py-6 gap-6">
               <nav className="flex flex-col gap-4 text-lg font-medium text-foreground">
-                <a href="#features" onClick={() => setMobileMenuOpen(false)} className="hover:text-accent">Features</a>
-                <a href="#campuses" onClick={() => setMobileMenuOpen(false)} className="hover:text-accent">Campuses</a>
-                <a href="#mission" onClick={() => setMobileMenuOpen(false)} className="hover:text-accent">Mission</a>
-                <a href="#leaderboard" onClick={() => setMobileMenuOpen(false)} className="hover:text-accent">Global Leaderboard</a>
+                <button onClick={() => scrollTo('campuses')} className="text-left hover:text-accent transition-colors">Eco-Hubs</button>
+                <button onClick={() => scrollTo('features')} className="text-left hover:text-accent transition-colors">Features</button>
+                <button onClick={() => scrollTo('mission')} className="text-left hover:text-accent transition-colors">Mission</button>
+                <button onClick={() => scrollTo('leaderboard')} className="text-left hover:text-accent transition-colors">Global Leaderboard</button>
               </nav>
               <div className="flex flex-col gap-3 sm:hidden">
                 <button
@@ -369,7 +385,7 @@ export default function App() {
   if (isLoading) {
     return (
       <div className="min-h-[100dvh] flex items-center justify-center bg-background text-foreground">
-        <Leaf className="w-8 h-8 animate-pulse text-primary" />
+        <Spinner message="Connecting to Treco..." />
       </div>
     );
   }

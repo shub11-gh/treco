@@ -4,6 +4,7 @@ import { Trophy, TrendingUp, TrendingDown, Minus, Flame, Crown } from 'lucide-re
 import { Card, CardContent } from '../components/ui/card';
 import api from '../lib/api';
 import useAuthStore from '../store/useAuthStore';
+import Spinner from '../components/ui/Spinner';
 import { ListSkeleton } from '../components/Skeletons';
 
 export default function Leaderboard() {
@@ -45,9 +46,8 @@ export default function Leaderboard() {
 
   if (loading) {
     return (
-      <div className="w-full max-w-3xl flex flex-col gap-4">
-        <div className="h-9 w-56 bg-muted rounded-lg animate-pulse" />
-        <ListSkeleton count={5} />
+      <div className="w-full h-64 flex items-center justify-center">
+        <Spinner message="Loading Leaderboard..." />
       </div>
     );
   }
