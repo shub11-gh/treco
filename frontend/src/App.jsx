@@ -370,12 +370,20 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Show onboarding on first ever login
+  // Show onboarding on first ever login, ONLY for new accounts
   useEffect(() => {
-    if (isAuthenticated && !localStorage.getItem('onboardingComplete')) {
-      setShowOnboarding(true);
+    if (isAuthenticated && user && !localStorage.getItem('onboardingComplete')) {
+      const accountAgeHours = (new Date() - new Date(user.createdAt)) / (1000 * 60 * 60);
+      
+      if (accountAgeHours < 24) {
+        // Only show if the account was created recently (within 24 hours)
+        setShowOnboarding(true);
+      } else {
+        // For older users logging into a new device/browser, skip onboarding
+        localStorage.setItem('onboardingComplete', 'true');
+      }
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, user]);
 
   const handleOnboardingComplete = () => {
     localStorage.setItem('onboardingComplete', 'true');

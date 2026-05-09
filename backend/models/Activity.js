@@ -14,11 +14,11 @@ const activitySchema = new mongoose.Schema({
   
   startLocation: {
     type: { type: String, enum: ['Point'], default: 'Point' },
-    coordinates: { type: [Number], required: true } 
+    coordinates: { type: [Number] }  // not required — AI-engine trips don't have GPS coords
   },
   endLocation: {
     type: { type: String, enum: ['Point'], default: 'Point' },
-    coordinates: { type: [Number], required: true } 
+    coordinates: { type: [Number] }  // not required — AI-engine trips don't have GPS coords
   },
   
   // MANDATORY PROOF FIELDS

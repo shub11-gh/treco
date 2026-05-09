@@ -54,4 +54,7 @@ mongoose.connect(process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/carbon-carv
     console.log('Connected to MongoDB');
     app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 })
-.catch((err) => console.log('DB Connection Error: ', err.message));
+.catch((err) => {
+  console.error('DB Connection Error: ', err.message);
+  process.exit(1); // Don't let the server run with no DB connection
+});

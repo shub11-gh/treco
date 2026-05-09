@@ -4,6 +4,7 @@ import { z } from 'zod';
 import User from '../models/User.js';
 import Activity from '../models/Activity.js';
 import Reward from '../models/Reward.js';
+import Redemption from '../models/Redemption.js';
 
 export const registerSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters" }),
@@ -108,10 +109,27 @@ export const redeemPoints = async (req, res) => {
       return res.status(400).json({ message: 'Redemption failed. Insufficient points or session conflict.' });
     }
 
+    // --- SERVER-SIDE CODE GENERATION (Bug #7 fix) ---
+    // Generate a unique, authoritative redemption code and persist it.
+    // Format: TRC-<REWARDID_SUFFIX>-<USERID_SUFFIX>-<TIMESTAMP_BASE36>
+    const timePart = Date.now().toString(36).toUpperCase();
+    const rewardPart = rewardId.toString().slice(-4).toUpperCase();
+    const userPart = req.user.userId.toString().slice(-4).toUpperCase();
+    const redemptionCode = `TRC-${rewardPart}-${userPart}-${timePart}`;
+
+    await Redemption.create({
+      userId: req.user.userId,
+      rewardId,
+      rewardTitle: reward.title,
+      pointsSpent: pointsToRedeem,
+      code: redemptionCode,
+    });
+
     res.json({ 
       message: 'Redeemed successfully', 
       spendablePoints: updatedUser.spendablePoints,
-      shieldActivated: reward.title === 'Streak Shield'
+      shieldActivated: reward.title === 'Streak Shield',
+      redemptionCode,
     });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -222,21 +240,24 @@ export const demoSetup = async (req, res) => {
       { new: true }
     );
 
-    await Reward.deleteMany({});
-    const sampleRewards = [
-      { title: 'Amazon Voucher', pointCost: 1000, category: 'Digital Cash', sponsorCollege: 'Ola Money', description: 'INR 100 Gift Card for all your shopping needs.' },
-      { title: 'Flipkart Gift Card', pointCost: 2500, category: 'Digital Cash', sponsorCollege: 'Flipkart', description: 'INR 250 Gift Card for electronics and fashion.' },
-      { title: 'Swiggy Voucher', pointCost: 1500, category: 'Digital Cash', sponsorCollege: 'Zomato', description: 'INR 150 discount on your next meal.' },
-      { title: 'Wireless Earbuds', pointCost: 5000, category: 'Tech', sponsorCollege: 'Boat Audio', description: 'Noise-cancelling wireless buds for your commute.' },
-      { title: 'MacBook Skin', pointCost: 800, category: 'Tech', sponsorCollege: 'Dbrand', description: 'Custom protective skin for your laptop.' },
-      { title: 'Free Coffee', pointCost: 150, category: 'Food', sponsorCollege: 'Starbucks', description: 'One standard size latte or cappuccino.' },
-      { title: '20% Off Pizza', pointCost: 300, category: 'Food', sponsorCollege: 'Dominos', description: 'Valid on all medium and large pizzas.' },
-      { title: 'Eco Water Bottle', pointCost: 600, category: 'Lifestyle', sponsorCollege: 'Decathlon', description: 'Reusable 1L stainless steel bottle.' },
-      { title: 'Movie Ticket', pointCost: 1200, category: 'Lifestyle', sponsorCollege: 'PVR Cinemas', description: 'One standard 2D movie ticket (Weekdays).' },
-      { title: 'Attendance Buffer', pointCost: 3000, category: 'Academic', sponsorCollege: 'Office of Dean', description: 'One-time 2% attendance grace for any subject.' },
-      { title: 'Bus Pass (1 Week)', pointCost: 200, category: 'Academic', sponsorCollege: 'BMTC', description: 'Unlimited travel on standard city buses.' },
-    ];
-    await Reward.insertMany(sampleRewards);
+    // Only seed rewards if the collection is empty — avoids wiping real user rewards on repeated calls
+    const existingRewardCount = await Reward.countDocuments();
+    if (existingRewardCount === 0) {
+      const sampleRewards = [
+        { title: 'Amazon Voucher', pointCost: 1000, category: 'Digital Cash', sponsorCollege: 'Ola Money', description: 'INR 100 Gift Card for all your shopping needs.' },
+        { title: 'Flipkart Gift Card', pointCost: 2500, category: 'Digital Cash', sponsorCollege: 'Flipkart', description: 'INR 250 Gift Card for electronics and fashion.' },
+        { title: 'Swiggy Voucher', pointCost: 1500, category: 'Digital Cash', sponsorCollege: 'Zomato', description: 'INR 150 discount on your next meal.' },
+        { title: 'Wireless Earbuds', pointCost: 5000, category: 'Tech', sponsorCollege: 'Boat Audio', description: 'Noise-cancelling wireless buds for your commute.' },
+        { title: 'MacBook Skin', pointCost: 800, category: 'Tech', sponsorCollege: 'Dbrand', description: 'Custom protective skin for your laptop.' },
+        { title: 'Free Coffee', pointCost: 150, category: 'Food', sponsorCollege: 'Starbucks', description: 'One standard size latte or cappuccino.' },
+        { title: '20% Off Pizza', pointCost: 300, category: 'Food', sponsorCollege: 'Dominos', description: 'Valid on all medium and large pizzas.' },
+        { title: 'Eco Water Bottle', pointCost: 600, category: 'Lifestyle', sponsorCollege: 'Decathlon', description: 'Reusable 1L stainless steel bottle.' },
+        { title: 'Movie Ticket', pointCost: 1200, category: 'Lifestyle', sponsorCollege: 'PVR Cinemas', description: 'One standard 2D movie ticket (Weekdays).' },
+        { title: 'Attendance Buffer', pointCost: 3000, category: 'Academic', sponsorCollege: 'Office of Dean', description: 'One-time 2% attendance grace for any subject.' },
+        { title: 'Bus Pass (1 Week)', pointCost: 200, category: 'Academic', sponsorCollege: 'BMTC', description: 'Unlimited travel on standard city buses.' },
+      ];
+      await Reward.insertMany(sampleRewards);
+    }
 
     res.json({ message: 'Demo setup complete!', userBoosted: !!user });
   } catch (err) {

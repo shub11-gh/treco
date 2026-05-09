@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -33,14 +33,21 @@ export default function SmartEngine() {
   const [uploadingProof, setUploadingProof] = useState(false);
   const [proofPreview, setProofPreview] = useState(null);
   const [isVerified, setIsVerified] = useState(false);
+  const [verificationReason, setVerificationReason] = useState('');
+  const [extractedData, setExtractedData] = useState(null); // OCR data from ticket
   const [notificationPermission, setNotificationPermission] = useState('default');
 
   const { user, checkAuth } = useAuthStore();
 
+  // Ref for the hidden file input — more reliable than label-for-id on mobile browsers
+  const proofInputRef = useRef(null);
+
   const getFullUrl = (url) => {
     if (!url) return null;
     if (url.startsWith('http')) return url;
-    return `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}${url}`;
+    // Derive base from VITE_API_URL by stripping /api/v1
+    const base = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1').replace('/api/v1', '');
+    return `${base}${url}`;
   };
 
   // Load active session on mount
@@ -211,7 +218,13 @@ export default function SmartEngine() {
       });
       setIsVerified(data.isVerified);
       setProofPreview(data.proofUrl);
-      toast.success(data.message || 'AI Verification Successful!');
+      setVerificationReason(data.reason || '');
+      if (data.extractedData) setExtractedData(data.extractedData);
+      if (data.isVerified) {
+        toast.success(data.message || 'Proof Verified!');
+      } else {
+        toast.error(data.reason || 'Verification failed. Please try again with a clearer photo.');
+      }
     } catch (err) {
       toast.error(err.response?.data?.message || 'Verification failed.');
     } finally {
@@ -246,6 +259,11 @@ export default function SmartEngine() {
       });
 
       setActiveCommute({ ...data.activity, routeInfo: route });
+
+      // Auto-verify Walk/Cycle — no physical ticket is ever issued for these modes
+      if (safeMode === 'Walk' || safeMode === 'Cycle') {
+        setIsVerified(true);
+      }
 
       // --- SCHEDULE NOTIFICATION REMINDER ---
       // Parse duration from format '25 min' or '1h 10m'
@@ -289,8 +307,8 @@ export default function SmartEngine() {
 
       const { data } = await api.post('/commutes/complete', { activityId, bypass });
 
-      // Confetti burst for green choice
-      if (activeCommute?.routeInfo?.isGreenChoice || activeCommute?.co2SavedKg > 0) {
+      // Confetti only for genuinely green choices, never for Cab
+      if (activeCommute?.routeInfo?.isGreenChoice) {
         confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 }, colors: ['#10b981', '#3b82f6'] });
       }
 
@@ -389,8 +407,10 @@ export default function SmartEngine() {
           <Card className="border-primary bg-primary/5 backdrop-blur-2xl shadow-[0_0_50px_rgba(16,185,129,0.1)] relative overflow-hidden">
             <div className="absolute top-0 right-0 p-4 opacity-10"><Navigation className="w-32 h-32" /></div>
             <CardContent className="p-8 flex flex-col items-center text-center gap-6">
-              <div className="w-20 h-20 rounded-full border-4 border-primary/30 border-t-primary animate-spin flex items-center justify-center">
-                <div className="text-xl font-black font-mono text-primary animate-none rotate-[-45deg]">{elapsed}s</div>
+              {/* Spinner ring with elapsed time overlay — elapsed text is outside the rotating element */}
+              <div className="relative w-20 h-20 flex items-center justify-center">
+                <div className="absolute inset-0 rounded-full border-4 border-primary/30 border-t-primary animate-spin" />
+                <div className="text-sm font-black font-mono text-primary z-10">{formatTime(elapsed)}</div>
               </div>
               <div>
                 <h2 className="text-3xl font-black tracking-tight mb-2">Commute in Progress</h2>
@@ -415,17 +435,66 @@ export default function SmartEngine() {
                   <div className="text-[11px] text-muted-foreground">Your eco trip will be verified automatically on completion.</div>
                 </div>
               ) : (
-                <div className="w-full max-w-md mt-4 p-5 rounded-2xl bg-background/60 border-2 border-dashed border-primary/20 flex flex-col items-center gap-4 group hover:border-primary/50 transition-all">
+                <div className={`w-full max-w-md mt-4 p-5 rounded-2xl bg-background/60 border-2 border-dashed flex flex-col items-center gap-4 group transition-all ${
+                  proofPreview && !isVerified 
+                    ? 'border-red-500/50 hover:border-red-500/80' 
+                    : 'border-primary/20 hover:border-primary/50'
+                }`}>
                   {proofPreview ? (
-                    <div className="relative group">
-                      <img
-                        src={getFullUrl(proofPreview)}
-                        alt="Proof"
-                        className="w-32 h-32 object-cover rounded-xl border-2 border-primary shadow-lg"
-                      />
-                      <div className="absolute inset-0 bg-primary/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-xl">
-                        <span className="text-[10px] font-bold text-white uppercase tracking-widest bg-primary px-2 py-1 rounded">Verified</span>
+                    <div className="flex flex-col items-center gap-3 w-full">
+                      <div className="relative group">
+                        <img
+                          src={getFullUrl(proofPreview)}
+                          alt="Proof"
+                          className={`w-32 h-32 object-cover rounded-xl border-2 shadow-lg ${
+                            isVerified ? 'border-primary' : 'border-red-500'
+                          }`}
+                        />
+                        <div className={`absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-xl ${
+                          isVerified ? 'bg-primary/20' : 'bg-red-500/20'
+                        }`}>
+                          <span className={`text-[10px] font-bold text-white uppercase tracking-widest px-2 py-1 rounded ${
+                            isVerified ? 'bg-primary' : 'bg-red-500'
+                          }`}>
+                            {isVerified ? 'Verified' : 'Rejected'}
+                          </span>
+                        </div>
                       </div>
+
+                      {/* OCR Extracted Data Card */}
+                      {extractedData && (
+                        <div className={`w-full rounded-xl border p-3 text-left ${
+                          isVerified
+                            ? 'bg-emerald-500/5 border-emerald-500/20'
+                            : 'bg-red-500/5 border-red-500/20'
+                        }`}>
+                          <div className={`text-[9px] font-black uppercase tracking-widest mb-2 ${
+                            isVerified ? 'text-emerald-500' : 'text-red-500'
+                          }`}>
+                            {isVerified ? 'Ticket Data Matched' : 'Ticket Mismatch Detected'}
+                          </div>
+                          {isVerified ? (
+                            <div className="grid grid-cols-2 gap-1">
+                              {[
+                                { label: 'From', value: extractedData.source },
+                                { label: 'To',   value: extractedData.destination },
+                                { label: 'Date', value: extractedData.date },
+                                { label: 'Time', value: extractedData.time },
+                                { label: 'Vehicle', value: extractedData.vehicleNo },
+                              ].map(({ label, value }) => value && (
+                                <div key={label} className="bg-background/60 rounded-lg px-2 py-1.5">
+                                  <div className="text-[8px] text-muted-foreground uppercase font-bold">{label}</div>
+                                  <div className="text-[10px] font-bold text-foreground truncate">{value}</div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-[11px] font-medium text-red-400 mt-1 leading-relaxed">
+                              {verificationReason || 'Could not verify ticket details.'}
+                            </p>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <div className="p-4 bg-primary/10 rounded-full text-primary group-hover:scale-110 transition-transform">
@@ -439,25 +508,35 @@ export default function SmartEngine() {
                   </div>
 
                   <div className="w-full relative">
+                    {/* Hidden file input — triggered via ref for cross-browser mobile compatibility.
+                        Using label-for-id with disabled attribute breaks on iOS Safari & Android Chrome. */}
                     <input
+                      ref={proofInputRef}
                       type="file"
                       accept="image/*"
-                      capture="environment"
                       onChange={handleUploadProof}
                       className="hidden"
                       id="proof-upload"
-                      disabled={uploadingProof || isVerified}
                     />
-                    <label
-                      htmlFor="proof-upload"
-                      className={`flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold cursor-pointer transition-all w-full shadow-sm ${isVerified
-                        ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
-                        : 'bg-primary text-primary-foreground hover:shadow-lg active:scale-95'
-                        }`}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!uploadingProof && !isVerified) {
+                          proofInputRef.current?.click();
+                        }
+                      }}
+                      disabled={uploadingProof || isVerified}
+                      className={`flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold transition-all w-full shadow-sm ${
+                        isVerified
+                          ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 cursor-default'
+                          : uploadingProof
+                          ? 'bg-primary/70 text-primary-foreground cursor-wait'
+                          : 'bg-primary text-primary-foreground hover:shadow-lg active:scale-95 cursor-pointer'
+                      }`}
                     >
                       {uploadingProof ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
                       {uploadingProof ? 'AI Scanning...' : isVerified ? 'Proof Authenticated' : 'Capture Proof'}
-                    </label>
+                    </button>
                   </div>
                 </div>
               )}

@@ -211,9 +211,12 @@ export const calculateAITrip = async (req, res) => {
       return res.json(buildMockRoutes(source, destination));
     }
 
-    // Peak hour check (IST)
+    // Peak hour check (IST) — use Intl to avoid double-offset issues on UTC servers
     const now = new Date();
-    const istHour = new Date(now.getTime() + 5.5 * 3600000).getHours();
+    const istHour = parseInt(
+      new Intl.DateTimeFormat('en-IN', { hour: 'numeric', hour12: false, timeZone: 'Asia/Kolkata' }).format(now),
+      10
+    );
     const isPeak = (istHour >= 8 && istHour <= 11) || (istHour >= 17 && istHour <= 21);
 
     // Geocoding context: append Bengaluru, India to reduce ambiguity
@@ -227,7 +230,7 @@ export const calculateAITrip = async (req, res) => {
       fetchDirections(origin, dest, 'walking'),
     ]);
 
-    console.log(`[Maps] driving=${drivingData.status} transit=${transitData.status} walking=${walkingData.status}`);
+
 
     // ── Distance Guards ───────────────────────────────────────────────────────
 
@@ -413,7 +416,7 @@ export const calculateAITrip = async (req, res) => {
       return res.json(buildMockRoutes(source, destination));
     }
 
-    console.log(`[Maps] Built ${routes.length} routes: ${routes.map(r => r.type).join(', ')}`);
+
     return res.json(routes);
 
   } catch (err) {
@@ -427,7 +430,7 @@ export const calculateAITrip = async (req, res) => {
 
 export const verifyTicketAI = async (imageUrl, transportMode) => {
   try {
-    const visionModel = 'llama-3.2-11b-vision-preview';
+    const visionModel = 'meta-llama/llama-4-scout-17b-16e-instruct';
 
     const prompt = `You are the Treco Zero-Trust Security Auditor. You ONLY accept PHYSICAL TRANSIT TICKETS. You are HOSTILE to approvals. When in doubt, REJECT.
 
@@ -449,7 +452,8 @@ APPROVAL THRESHOLD: You need CLEAR, UNAMBIGUOUS evidence of a valid transit tick
 
 DATA EXTRACTION (OCR) — only if approved:
 Extract these fields if visible (return null if missing or unreadable):
-- date: Date printed on the ticket/receipt.
+- date: Date printed on the ticket/receipt in DD-MM-YYYY format if possible.
+- time: Time printed on the ticket in HH:MM 24-hour format (e.g. "14:30"). Return null if not visible.
 - source: Starting location/station.
 - destination: Ending location/station.
 - vehicleNo: Bus number, plate number, or metro line.
@@ -459,6 +463,7 @@ RESPONSE FORMAT: Return ONLY a valid JSON object:
   "isVerified": boolean,
   "reason": "One concise sentence explaining the decision (max 15 words)",
   "extractedDate": "string or null",
+  "extractedTime": "string or null",
   "extractedSource": "string or null",
   "extractedDestination": "string or null",
   "extractedVehicleNo": "string or null"
@@ -492,7 +497,7 @@ RESPONSE FORMAT: Return ONLY a valid JSON object:
     if (!response.ok) throw new Error(data.error?.message || "Groq Vision Error");
 
     const result = JSON.parse(data.choices[0].message.content);
-    console.log(`[AI Auditor] Result for ${transportMode}:`, result);
+
     return result;
 
   } catch (err) {

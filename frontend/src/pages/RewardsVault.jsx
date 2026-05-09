@@ -42,9 +42,6 @@ function getIcon(title) {
   return entry ? entry[1] : Gift;
 }
 
-function genRedemptionCode(rewardId) {
-  return `TRC-${rewardId.toString().slice(-4).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
-}
 
 export default function RewardsVault() {
   const [claimedIds, setClaimedIds] = useState([]);
@@ -71,18 +68,15 @@ export default function RewardsVault() {
     }
   };
 
-  const handleDialogOpen = (reward) => {
-    if (!redemptionCodes[reward._id]) {
-      setRedemptionCodes(prev => ({
-        ...prev,
-        [reward._id]: genRedemptionCode(reward._id)
-      }));
-    }
+  const handleDialogOpen = (_reward) => {
+    // Codes are generated server-side on claim — nothing to pre-generate here
   };
 
   const handleClaim = async (reward) => {
     try {
-      await api.post('/auth/redeem', { rewardId: reward._id });
+      const { data } = await api.post('/auth/redeem', { rewardId: reward._id });
+      // Store the server-generated code so the dialog can display it immediately
+      setRedemptionCodes(prev => ({ ...prev, [reward._id]: data.redemptionCode }));
       setClaimedIds(prev => [...prev, reward._id]);
       checkAuth();
       toast.success(`${reward.title} redeemed!`);

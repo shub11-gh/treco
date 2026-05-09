@@ -219,9 +219,9 @@ export default function Profile() {
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
           <Card className={`border-border bg-card/10 backdrop-blur-md overflow-hidden relative ${user?.carbonDebt > 50 ? 'border-red-500/20' : ''}`}>
             <CardContent className="p-5">
-              <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+              <div className="flex flex-col items-start gap-5 w-full">
                 {/* Left: Metric + Label */}
-                <div className="flex items-center gap-5">
+                <div className="flex items-center gap-4">
                   <div className={`p-3 rounded-2xl ${user?.carbonDebt > 50 ? 'bg-red-500/10 text-red-500' : 'bg-amber-500/10 text-amber-500'}`}>
                     {user?.carbonDebt > 50 ? <AlertTriangle className="w-6 h-6" /> : <Zap className="w-6 h-6" />}
                   </div>
@@ -231,40 +231,36 @@ export default function Profile() {
                       <span className={`text-3xl font-black font-mono tracking-tighter ${user?.carbonDebt > 50 ? 'text-red-500' : 'text-foreground'}`}>
                         {user?.carbonDebt.toFixed(1)}
                       </span>
-                      <span className="text-xs font-bold opacity-40 uppercase">kg CO₂</span>
+                      <span className="text-xs font-bold opacity-40">kg CO₂</span>
                     </div>
                   </div>
                 </div>
 
                 {/* Right: Status + Action */}
-                <div className="flex-1 max-w-sm w-full">
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40">Accountability Status</span>
-                    <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded border ${user?.carbonDebt > 50 ? 'bg-red-500/10 border-red-500/20 text-red-500' : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500'}`}>
-                      {user?.carbonDebt > 50 ? 'RANK FROZEN' : 'CLIMATE SAFE'}
-                    </span>
+                {user?.carbonDebt > 50 ? (
+                  <div className="w-full space-y-3">
+                    <div className="absolute top-5 right-5 flex items-center gap-2">
+                      <span className="text-[10px] font-black uppercase px-2 py-1 rounded border bg-red-500/10 border-red-500/20 text-red-500 shadow-sm">
+                        RANK FROZEN
+                      </span>
+                    </div>
+                    <div className="h-1.5 w-full bg-red-500/10 rounded-full overflow-hidden mt-2">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${Math.min(100, (user.carbonDebt / 100) * 100)}%` }}
+                        className="h-full bg-red-500"
+                      />
+                    </div>
+                    <p className="text-[11px] text-muted-foreground font-medium text-left italic">
+                      Choose <span className="text-emerald-500 font-bold">Green Commutes</span> to clear your debt.
+                    </p>
                   </div>
-
-                  {user?.carbonDebt > 50 ? (
-                    <div className="space-y-3">
-                      <div className="h-1.5 w-full bg-red-500/10 rounded-full overflow-hidden">
-                        <motion.div
-                          initial={{ width: 0 }}
-                          animate={{ width: `${Math.min(100, (user.carbonDebt / 100) * 100)}%` }}
-                          className="h-full bg-red-500"
-                        />
-                      </div>
-                      <p className="text-[11px] text-muted-foreground font-medium text-center italic">
-                        Choose <span className="text-emerald-500 font-bold">Green Commutes</span> to clear your debt.
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-3 text-emerald-500 font-bold text-xs">
-                      <ShieldCheck className="w-4 h-4" />
-                      <span>You are Carbon Neutral.</span>
-                    </div>
-                  )}
-                </div>
+                ) : (
+                  <div className="absolute top-5 right-5 flex items-center gap-1.5 text-emerald-500 font-bold text-[10px] sm:text-xs bg-emerald-500/10 border border-emerald-500/20 px-2 py-1 rounded-md shadow-sm">
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                    <span>Carbon Neutral</span>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>

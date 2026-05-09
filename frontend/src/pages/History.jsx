@@ -13,6 +13,7 @@ const modeConfig = {
   Walk: { icon: Footprints, color: 'text-green-400', bg: 'bg-green-400/10', chartColor: '#4ade80', label: 'Walk' },
   Cycle: { icon: Bike, color: 'text-yellow-400', bg: 'bg-yellow-400/10', chartColor: '#facc15', label: 'Cycle' },
   Cab: { icon: Car, color: 'text-red-400', bg: 'bg-red-400/10', chartColor: '#f87171', label: 'Cab' },
+  Auto: { icon: Car, color: 'text-orange-400', bg: 'bg-orange-400/10', chartColor: '#fb923c', label: 'Auto' },
 };
 
 function formatDate(iso) {

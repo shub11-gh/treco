@@ -3,6 +3,99 @@ import Activity from '../models/Activity.js';
 import User from '../models/User.js';
 import { calculateAITrip, aiCommuteSchema, verifyTicketAI } from '../controllers/aiController.js';
 
+// ── Location Cross-Validation Helper ─────────────────────────────────────────
+// Fuzzy token-overlap algorithm to detect when a ticket's route clearly doesn't
+// match the user's declared trip, without requiring an exact string match.
+// Bengaluru locality names often appear abbreviated or with alternate spellings
+// (e.g. "Indiranagar" vs "Indira Nagar"), so we do partial token matching.
+
+const STOP_WORDS = new Set(['road', 'rd', 'street', 'st', 'nagar', 'cross', 'main',
+  'layout', 'colony', 'bus', 'stop', 'station', 'metro', 'near', 'junction',
+  'circle', 'signal', 'gate', 'tower', 'park', 'bangalore', 'bengaluru']);
+
+function tokenize(location) {
+  if (!location) return [];
+  return location
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .map(t => t.trim())
+    .filter(t => t.length > 2 && !STOP_WORDS.has(t));
+}
+
+function hasTokenOverlap(extracted, declared) {
+  const exTokens = tokenize(extracted);
+  const dcTokens = tokenize(declared);
+  if (exTokens.length === 0 || dcTokens.length === 0) return true; // can't compare → benefit of doubt
+  return dcTokens.some(d => exTokens.some(e => e.includes(d) || d.includes(e)));
+}
+
+/**
+ * Returns a rejection reason string if the ticket's locations clearly mismatch
+ * the user's declared trip, or if the date/time is blatantly incorrect, 
+ * or null if everything looks fine (or can't be compared).
+ */
+function checkTicketValidity(extractedSrc, extractedDst, declaredSrc, declaredDst, extractedDate, extractedTime) {
+  // 1. Date & Time Check
+  const now = new Date();
+  
+  // Date check: if ticket date is present and not today's date (allowing for minor timezone diffs)
+  if (extractedDate && extractedDate !== 'null') {
+    // Simple check: does the extracted date string contain today's day/month or yesterday's?
+    // A robust check requires parsing, but we do a fuzzy includes check for today's DD-MM or DD/MM
+    const todayStr = now.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: '2-digit' }).replace(/\//g, '-');
+    const todayStrSlash = todayStr.replace(/-/g, '/');
+    const todayDateOnly = now.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit' });
+    
+    // If we have a date but it doesn't look like today's date, flag it.
+    // (Giving benefit of the doubt if parsing is ambiguous).
+    if (!extractedDate.includes(todayStr) && !extractedDate.includes(todayStrSlash) && !extractedDate.includes(todayDateOnly)) {
+       // Benefit of doubt: we don't strictly reject on date unless we are very sure, but we can return a message.
+       // Let's hold off on strict rejection for date unless it's obviously a past year.
+       if (extractedDate.match(/202[0-3]|201\d/)) {
+           return `Date mismatch: This ticket appears to be from an old date (${extractedDate}).`;
+       }
+    }
+  }
+
+  // Time check: if ticket time is way in the future
+  if (extractedTime && extractedTime !== 'null') {
+    const match = extractedTime.match(/(\d{1,2}):(\d{2})/);
+    if (match) {
+      const ticketHour = parseInt(match[1], 10);
+      const ticketMin = parseInt(match[2], 10);
+      const currentHour = parseInt(now.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', hour12: false }), 10);
+      const currentMin = parseInt(now.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', minute: '2-digit' }), 10);
+      
+      // If ticket time is > 2 hours in the future (impossible unless timezones are weird)
+      if (ticketHour > currentHour + 2) {
+         return `Time mismatch: The ticket time (${extractedTime}) is in the future.`;
+      }
+    }
+  }
+
+  // 2. Location Check
+  // If the ticket didn't contain readable location data, skip cross-check (benefit of doubt)
+  const hasExtractedSrc = extractedSrc && extractedSrc !== 'null';
+  const hasExtractedDst = extractedDst && extractedDst !== 'null';
+
+  if (!hasExtractedSrc && !hasExtractedDst) return null; // no location data on ticket
+
+  const srcOk = !hasExtractedSrc || !declaredSrc || hasTokenOverlap(extractedSrc, declaredSrc);
+  const dstOk = !hasExtractedDst || !declaredDst || hasTokenOverlap(extractedDst, declaredDst);
+
+  if (!srcOk && !dstOk) {
+    return `Route mismatch: ticket shows ${extractedSrc} → ${extractedDst}, but your declared trip was ${declaredSrc} → ${declaredDst}.`;
+  }
+  if (!srcOk) {
+    return `Origin mismatch: ticket shows "${extractedSrc}" but your trip started at "${declaredSrc}".`;
+  }
+  if (!dstOk) {
+    return `Destination mismatch: ticket shows "${extractedDst}" but your trip ends at "${declaredDst}".`;
+  }
+  return null;
+}
+
 export const calculateSchema = z.object({
   startCoords: z.tuple([z.number(), z.number()]).optional(),
   endCoords: z.tuple([z.number(), z.number()]).optional(),
@@ -106,7 +199,8 @@ export const logCommute = async (req, res) => {
       sourceName,
       destinationName,
       startLocation: { type: 'Point', coordinates: startCoords },
-      endLocation: { type: 'Point', coordinates: endCoords }
+      endLocation: { type: 'Point', coordinates: endCoords },
+      isVerified: mode === 'Walk' || mode === 'Cycle'
     });
 
     await activity.save();
@@ -159,24 +253,29 @@ export const completeCommute = async (req, res) => {
     }
 
     // VELOCITY VALIDATION (ANTI-CHEAT)
+    // Skip check if the trip was completed very quickly (< 2 min) — avoids Infinity avgSpeed edge case
     if (!isDemoBypass) {
       const durationHours = (Date.now() - new Date(activity.startedAt).getTime()) / (1000 * 60 * 60);
-      const avgSpeed = activity.distanceKm / durationHours;
+      const MIN_DURATION_HOURS = 2 / 60; // 2 minutes minimum before velocity is meaningful
 
-      const speedLimits = {
-        Walk: 10,
-        Cycle: 35,
-        Bus: 85,
-        Metro: 100,
-        Cab: 120,
-        Auto: 100
-      };
+      if (durationHours >= MIN_DURATION_HOURS) {
+        const avgSpeed = activity.distanceKm / durationHours;
 
-      const maxSpeed = speedLimits[activity.transportMode] || 120;
-      if (avgSpeed > maxSpeed) {
-        return res.status(400).json({ 
-          message: `Velocity Violation: You traveled at ${avgSpeed.toFixed(1)} km/h. This is physically impossible for '${activity.transportMode}'. Trip invalidated.` 
-        });
+        const speedLimits = {
+          Walk: 10,
+          Cycle: 35,
+          Bus: 85,
+          Metro: 100,
+          Cab: 120,
+          Auto: 100
+        };
+
+        const maxSpeed = speedLimits[activity.transportMode] || 120;
+        if (avgSpeed > maxSpeed) {
+          return res.status(400).json({ 
+            message: `Velocity Violation: You traveled at ${avgSpeed.toFixed(1)} km/h. This is physically impossible for '${activity.transportMode}'. Trip invalidated.` 
+          });
+        }
       }
     }
 
@@ -212,7 +311,24 @@ export const uploadProof = async (req, res) => {
 
     // --- LIVE VISION AI VERIFICATION ---
     const aiResult = await verifyTicketAI(proofUrl, activity.transportMode);
-    
+
+    // --- LOCATION & TIME CROSS-VALIDATION ---
+    // Only run if the AI approved the ticket AND extracted data.
+    if (aiResult.isVerified) {
+      const mismatch = checkTicketValidity(
+        aiResult.extractedSource,
+        aiResult.extractedDestination,
+        activity.sourceName,
+        activity.destinationName,
+        aiResult.extractedDate,
+        aiResult.extractedTime
+      );
+      if (mismatch) {
+        aiResult.isVerified = false;
+        aiResult.reason = mismatch;
+      }
+    }
+
     activity.proofUrl = proofUrl;
     activity.isVerified = aiResult.isVerified;
     activity.verificationReason = aiResult.reason;
@@ -220,6 +336,7 @@ export const uploadProof = async (req, res) => {
     // Save the new OCR extracted data
     activity.extractedData = {
       date: aiResult.extractedDate || null,
+      time: aiResult.extractedTime || null,
       source: aiResult.extractedSource || null,
       destination: aiResult.extractedDestination || null,
       vehicleNo: aiResult.extractedVehicleNo || null
@@ -231,7 +348,8 @@ export const uploadProof = async (req, res) => {
       message: aiResult.isVerified ? 'Proof verified by AI Smart Auditor!' : 'AI could not verify this proof. Please try again with a clearer photo.',
       proofUrl,
       isVerified: aiResult.isVerified,
-      reason: aiResult.reason
+      reason: aiResult.reason,
+      extractedData: activity.extractedData
     });
   } catch (err) {
     res.status(500).json({ message: err.message });
